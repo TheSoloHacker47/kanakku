@@ -1,10 +1,11 @@
 //! Open data: the same records the pages show, as JSON, CSV and GeoJSON.
 
 use kanakku_core::kiifb;
+use kanakku_core::kiifb_status::{self, FundedProject};
 use kanakku_core::model::Project;
 use serde_json::{json, Value};
 
-use crate::db::{ExportRow, ProjectPage};
+use crate::db::{ExportRow, FundingExportRow, ProjectPage};
 
 fn flag_list(types: Option<&str>) -> Vec<&str> {
     types.map(|t| t.split(',').collect()).unwrap_or_default()
@@ -162,4 +163,74 @@ pub fn projects_geojson(rows: &[ExportRow]) -> String {
 
 fn round6(v: f64) -> f64 {
     (v * 1e6).round() / 1e6
+}
+
+pub fn funding_json(rows: &[FundingExportRow], last_checked: Option<&str>) -> String {
+    let projects: Vec<Value> = rows
+        .iter()
+        .filter_map(|row| {
+            let mut record: Value = serde_json::from_str(&row.record_json).ok()?;
+            let object = record.as_object_mut()?;
+            object.insert("map_group".into(), json!(row.group_key));
+            object.insert("map_group_basis".into(), json!(row.match_basis));
+            object.insert("first_seen_on".into(), json!(row.first_seen_on));
+            object.insert("changed_on".into(), json!(row.changed_on));
+            object.insert("missing_since".into(), json!(row.missing_since));
+            Some(record)
+        })
+        .collect();
+    json!({
+        "source": kiifb_status::SOURCE_URL,
+        "source_last_checked": last_checked,
+        "currency": "INR, whole rupees",
+        "count": projects.len(),
+        "projects": projects,
+    })
+    .to_string()
+}
+
+/// One row per work; a project without works gets one row with the work columns empty.
+pub fn funding_csv(rows: &[FundingExportRow]) -> String {
+    let mut out = String::from(
+        "project_ref,project,department,spv,announced_under,project_status,project_approved,project_released,map_group,work_no,work,work_spv,work_status,work_approved,work_paid,changed_on,missing_since\r\n",
+    );
+    let num = |v: Option<i64>| v.map(|v| v.to_string()).unwrap_or_default();
+    for row in rows {
+        let Ok(p) = serde_json::from_str::<FundedProject>(&row.record_json) else { continue };
+        let head = [
+            p.reference.clone(),
+            p.name.clone(),
+            p.department.clone().unwrap_or_default(),
+            p.spv.clone().unwrap_or_default(),
+            p.main_project.clone().unwrap_or_default(),
+            p.status.clone().unwrap_or_default(),
+            num(p.approved),
+            num(p.released),
+            row.group_key.clone().unwrap_or_default(),
+        ];
+        let tail = [row.changed_on.clone(), row.missing_since.clone().unwrap_or_default()];
+        let mut line = |work: [String; 6]| {
+            for (i, cell) in head.iter().chain(work.iter()).chain(tail.iter()).enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                push_cell(&mut out, cell);
+            }
+            out.push_str("\r\n");
+        };
+        if p.works.is_empty() {
+            line(Default::default());
+        }
+        for (i, w) in p.works.iter().enumerate() {
+            line([
+                (i + 1).to_string(),
+                w.name.clone(),
+                w.spv.clone().unwrap_or_default(),
+                w.status.clone().unwrap_or_default(),
+                num(w.approved),
+                num(w.paid),
+            ]);
+        }
+    }
+    out
 }

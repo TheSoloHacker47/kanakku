@@ -1,0 +1,2176 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<!--  <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">-->
+  <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>:: KIIFB :: KERALA INFRASTRUCTURE INVESTMENT FUND BOARD ::</title>
+ <!-- core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+      <link href="css/font-awesome.min.css" rel="stylesheet">
+    <link href="css/animate.min.css" rel="stylesheet">
+    <link href="css/owl.carousel.css" rel="stylesheet">
+    <link href="css/owl.transitions.css" rel="stylesheet">
+    <link href="css/prettyPhoto.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+    <link href="css/responsive.css" rel="stylesheet">   
+    <link rel="stylesheet" type="text/css" href="css/topmnu/component.css" />
+     
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="images/ico/apple-touch-icon-144-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="images/ico/apple-touch-icon-114-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="images/ico/apple-touch-icon-72-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" href="images/ico/apple-touch-icon-57-precomposed.png">   
+   
+   	<link href="css/dt/demo_page.css" rel="stylesheet" type="text/css" />
+	<link href="css/dt/demo_table_jui.css" rel="stylesheet" type="text/css" />
+	<link href="css/dt/demo_table.css" rel="stylesheet" type="text/css" />
+	<link href="css/dt/jquery-ui-1.8.24.custom.css" rel="stylesheet" type="text/css" media="all" />   
+   	<script src="js/dt/jquery.js" type="text/javascript"></script>
+	<script src="js/dt/jquery.dataTables.js" type="text/javascript"></script>
+	
+<script type="text/javascript">	
+
+function Scrolldown() {
+	var uName = 'null';
+	
+	//if(uName == "null")
+	//{		
+	//	window.location = "deptlgn.jsp?sout";
+//	}
+	var qrStr = window.location.search;	 
+	//qrStr = qrStr.split("?")[1].split("=")[1];    
+	
+    if(qrStr == "")
+	{	
+    	//alert(qrStr);
+		document.getElementById('dvVwAppln').style.display = "none"; 
+	}
+	else if(qrStr != null)
+	{	
+		qrStr = qrStr.split("?")[1].split("=")[0];	    
+		if(qrStr =="shw")
+		{			
+			var strDeptId = document.getElementById("hidDid").value;
+			var strDstId = document.getElementById("hidSelDist").value;
+			var strConstId = document.getElementById("hidSelConstituency").value;
+			var strStatus = document.getElementById("hidStatus").value;
+			document.getElementsByName("optStatus")[0].value = strStatus;
+			document.getElementsByName("optDeptName")[0].value = strDeptId;
+			document.getElementsByName("optDistrict")[0].value = strDstId;
+			callAjaxFunctionGetContncy(strDstId,strConstId);
+			//document.getElementsByName("optConstituency")[0].value = strConstId;
+			window.scroll(0,1500);
+		}
+		//else if(qrStr =="apId")
+		//{				
+	//		document.getElementById('dvVwAppln').style.display = "block"; 
+	//		window.scroll(0,800);
+			//alert("here");
+				
+		//}
+	//	var divVal = document.getElementById("hidSelDiv").value;
+	//	if(divVal =="")divVal=0;
+	//	document.getElementsByName("optDivision")[0].value = divVal;
+	//	var postVal = document.getElementById("hidSelPost").value;
+	//	callAjaxFunction(divVal,postVal);		
+			
+	}
+    
+}
+$(document).ready(function () {
+    $("#tblProjects").dataTable({
+        "sPaginationType": "full_numbers",
+        "bJQueryUI": true,"iDisplayLength":10,        
+        //"aaSorting": [[5,'desc']],
+        //"aoColumnDefs": [{ "sType": "date", "aTargets": [ 6 ] }],
+    });
+});
+
+</script>
+<script src="js/jquery-ui.js"></script> <!-- "http://code.jquery.com/ui/1.10.4/jquery-ui.js" -->
+<script>
+$(function() {
+	  $( "#txtDateofBirth" ).datepicker({ dateFormat: "dd-mm-yy", changeMonth: true, changeYear: true, yearRange: "1960:+nn" });
+	  
+  });
+  
+ 
+  function populateConstituency() {
+		 
+	    var districtVal = document.getElementById("optDistrict").selectedIndex;   
+	   // alert(districtVal);
+	    callAjaxFunctionGetContncy(districtVal,"");
+	 
+	  }
+	 
+  /* function called to do Ajax Request */
+  function callAjaxFunctionGetContncy(dtVal,selVal){
+  //var url="GetDeptPrjData.GetTalukData("+dtVal+")";
+  var url="includes/GetData.jsp?mde=GtDstCtny&dtVal="+dtVal+"&selVal="+selVal;
+    var xmlHttp;
+        if (window.XMLHttpRequest) { // Mozilla, Safari, ...
+ 
+        var xmlHttp = new XMLHttpRequest();
+ 
+      	}else if (window.ActiveXObject) { // IE
+ 
+        var xmlHttp = new ActiveXObject("Microsoft.XMLHTTP");
+      	}
+ 
+    	xmlHttp.open('POST', url, true);
+    	xmlHttp.onreadystatechange = function() {
+ 
+        if (xmlHttp.readyState == 4) {
+ 
+            updatepage(xmlHttp.responseText);
+        }
+ 
+    }
+    xmlHttp.send(url);
+  } 
+	 
+	/* Call back function of Ajax Response*/
+	function updatepage(response){
+		//alert(response);
+		//document.getElementById("result").innerHTML = response;
+		 $("#optConstituency").html(response);
+	}
+
+
+function showProjects()
+{	
+	var summary = "";
+	var strDeptId = document.getElementById("optDeptName").value;
+	var strDstId = document.getElementById("optDistrict").value;
+	var strConstId = document.getElementById("optConstituency").value;
+	var strStatus = document.getElementById("optStatus").value;
+	
+	if(strDeptId == "0" && strDstId =="0" && strConstId=="0" && strStatus=="ALL")
+    {
+    	summary = "Please select any of the Selections.</br>";
+    }	
+	if(summary != "")
+    {	    	
+    	document.getElementById('errorview').style.display = "block";    	
+    	document.getElementById('errorview').innerHTML = summary;
+    	window.scroll(0,100);
+    	return false;
+    }
+    else
+	{
+    	document.frmProjectStatus.action="prjStatus.jsp?shw";
+    	document.frmProjectStatus.submit(); 	
+  	}	
+}
+
+function selectProject(strprjID)
+{		
+	document.getElementById("hidSelProject").value =strprjID; 
+	document.frmProjectStatus.action="prjStatus.jsp?shw";
+	//document.frmProjectStatus.action="prjInfo.jsp?shw&prj="+strprjID;
+	document.frmProjectStatus.submit(); 	
+}
+
+function hidePrjInfo()
+{
+	document.getElementById('dvVwPrjInfo').style.display = "none"; 
+	window.scroll(0,0);
+}
+
+function confrimReceived(valApplnId)
+{
+	var strDcode= document.getElementById("optDivision").value;
+	var strPcode= document.getElementById("optPost").value;
+	var x = confirm("\nAre you sure The Document is Received.... Do you want to Continue?");
+	if (x)		
+		window.location = "includes/ricveAppln.jsp?apId="+valApplnId+"&dCode="+strDcode+"&pCode="+strPcode;
+	else
+	   return false; 	
+}
+</script>
+</head>
+<body onLoad="Scrolldown()">
+
+    <header id="header">
+        <nav id="main-menu" class="navbar navbar-default navbar-fixed-top" role="banner">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <div style="position:absolute;">
+                    <a class="navbar-brand" href="index.jsp"><img src="images/KIIFB_Logo.png" alt="logo" ></a>
+                    </div>
+                </div>
+				
+                <div class="collapse navbar-collapse navbar-right">
+                  <div class="main" style="display:inline-block;"> 
+						<nav class="cbp-hsmenu-wrapper" id="cbp-hsmenu-wrapper">
+							<div class="cbp-hsinner">
+								<ul class="cbp-hsmenu">
+									<li><a class="scroll active" href="index.jsp#kiifb">HOME</a></li>
+									<li>
+										<a href="#">FIND US</a>
+										<ul class="cbp-hssubmenu">
+											<li><a href="index.jsp#blog"><i class="fa fa-cogs"></i><span>ACTIVITIES</span></a></li>
+											<li><a href="index.jsp#about"><i class="fa fa-university"></i><span>ABOUT US</span></a></li>
+											<li><a href="index.jsp#meet-team"><i class="fa fa-users"></i><span>WHOS WHO</span></a></li>
+											<li><a href="index.jsp#features"><i class="fa fa-cubes"></i><span>OBJECTIVES</span></a></li>
+											<li><a href="events.jsp"><i class="fa fa-newspaper-o"></i><span>EVENTS</span></a></li>	
+											<li><a href="index.jsp#portfolio"><i class="fa fa-picture-o"></i><span>GALLERY</span></a></li>	
+										</ul>
+									</li>
+									<!--<li>
+										<a href="#">ACTIVITIES</a>
+										<ul class="cbp-hssubmenu cbp-hssub-rows">									
+										</ul>  
+									</li>-->
+									<li>
+										<a href="#">PROJECTS</a>
+										<ul class="cbp-hssubmenu">
+											<li><a href="index.jsp#services"><i class="fa fa-cubes"></i><span>PROJECT INFO</span></a></li>
+											<li><a href="prjStatus.jsp"><i class="fa fa-cube"></i><span>PROJECT STATUS</span></a></li>
+                                            <li><a href="index.jsp#portfolio"><i class="fa fa-image"></i><span>PROJECT GALLERY</span></a></li>
+										</ul>
+									</li>							
+									<li><a href="media.jsp">MEDIA</a></li>
+                                    <li>
+										<a href="#">CAREERS</a>
+										<ul class="cbp-hssubmenu">
+											<li><a href="careers.jsp" target="_blank"><i class="fa fa-users"></i><span>CONTRACT</span></a></li>
+										<!-- -->	<li><a href="interns.jsp" target="_blank"><i class="fa fa-user"></i><span>INTERNSHIP</span></a></li>							
+										</ul>
+									</li>									
+									<li><a href="resources.jsp">RESOURCES</a></li>
+									<li><a href="index.jsp#get-in-touch">CONTACT & PUBLIC GRIEVANCE</a></li>
+									<li>
+										<a href="#">LOGIN</a>
+										<ul class="cbp-hssubmenu">
+											<li><a href="https://status.kiifb.org" target="_blank"><span>BILL-TRACK</span></a></li>
+											<li><a href="https://pfms.kiifb.org" target="_blank"><span>PFMS</span></a></li>
+                                            <li><a href="https://projectupdates.kiifb.org" target="_blank"><span>PMAS</span></a></li>																						
+											<li><a href="https://helpdesk.kiifb.org/portal/newticket" target="_blank"><span>HELPDESK</span></a></li>
+                                            <li><a href="https://smartodr.in/login" target="_blank"><span>SMART ODR</span></a></li>
+										<!--<li><a href="https://fms.kiifb.org" target="_blank"><span>FMS</span></a></li>	
+                                        <li><a href="https://vc.kiifb.org" target="_blank"><span>KIIFB ANALYTICS </span></a></li>
+                                            <li><a href="http://ktims.kiifb.org" target="_blank"><span>K-TIMS</span></a></li>-->
+										</ul>
+									</li>
+								</ul>
+							</div>
+						</nav> 
+					</div>
+                    <div style="display:inline-block;float:right;">
+                             <form class="navbar-form navbar-right navbar-search" name="frmSearch" action="" method="post">
+									<div class="frm-group" style="display:inline-block;">
+										<input type="text" id="txtWebSearch" name="txtWebSearch" style="width:120px;height:30px;"  maxlength="20" class="frm-control" placeholder="Search" onkeypress="return searchEnter(event)">
+									</div>
+									<button id="btnWebSearch" type="button" class="btn btn-primary" style="display:inline-block;vertical-align:top" onclick="searchWeb();"><span class="fa fa-search"></span></button>
+								</form>
+                            </div>
+  
+                  </div>
+               <!--    <div style="position: absolute;margin-left:29%;font-size:12px">
+               <span style="color: #45aed6;"> <b>KERALA INFRASTRUCTURE INVESTMENT FUND BOARD</b> </span>:: CONSTITUTED UNDER ::  
+               <a href='http://www.finance.kerala.gov.in/' title='Finance Department' target='_blank'>FINANCE DEPARTMENT</a>&nbsp;|&nbsp;<a href='http://www.kerala.gov.in/' title='Government of Kerala' target='_blank'>GOVERNMENT OF KERALA.</a>&nbsp;|&nbsp;
+
+                 </div>   -->
+               
+            </div><!--/.container-->
+        </nav><!--/nav-->
+    </header><!--/header-->  
+    
+    <div id="dvProjects" name="dvProjects" style="padding-left:20px"> 
+        <div class="container">
+            <div class="section-header">
+              <h2 class="section-title text-center wow fadeInDown">PROJECT STATUS</h2>
+                <p class="text-center wow fadeInDown">STATUS OF PROJECTS ENGAGED WITH KIIFB</p> </div>  
+            
+              <div class="row">
+                <div class="features">
+                
+ 			<h3 class="column-title">PROJECTS 
+ 			     <div class="pull-right">
+ 			      <a class="btn btn-primary" href="https://gis.kiifb.org/" target="_blank">PROJECTS ON MAP</a>&nbsp;
+ 			      <a class="btn btn-primary" href="https://kiifbverse-66c61.web.app/" target="_blank">PROJECT WALK-THROUGH</a>&nbsp;
+ 			      <a class="btn btn-primary" href="https://projectupdates.kiifb.org/gallery/" target="_blank">PROJECT PHOTO GALLERY</a>&nbsp;
+ 			     </div>  
+ 			     </h3>   
+ 			                     
+            <div>			
+            	
+            			         <div id="errorview" class="error"  style="display:none;background-color:#ff6a00;color:#FFFFFF;text-align:left;padding:10px;padding-left:10px;">Show Error</div>
+            	 <form name="frmProjectStatus" action="" method="post" > 	
+            	<div style="display: inline-block;padding-right:5px"> 
+					Department Name:<br/>
+            		<select id="optDeptName" name="optDeptName" style="height:35px;width:250px;" onchange="loadPrjAss()">    
+					<option value="0">--Select Department--</option>
+						
+	       			<!--  <option value="1">Agriculture Department</option>	-->		
+	       			<option value="AGR">Agriculture Department</option>
+	       				
+	       			<!--  <option value="39">Animal Husbandry Department</option>	-->		
+	       			<option value="AHD">Animal Husbandry Department</option>
+	       				
+	       			<!--  <option value="40">Ayush  Department</option>	-->		
+	       			<option value="AYUSH">Ayush  Department</option>
+	       				
+	       			<!--  <option value="41">Backward Class Development Department</option>	-->		
+	       			<option value="BCDD">Backward Class Development Department</option>
+	       				
+	       			<!--  <option value="42">Co-Operation Department</option>	-->		
+	       			<option value="COOP">Co-Operation Department</option>
+	       				
+	       			<!--  <option value="43">Coastal Shipping & Inland Navigation Department</option>	-->		
+	       			<option value="CIN">Coastal Shipping & Inland Navigation Department</option>
+	       				
+	       			<!--  <option value="2">Cultural Affairs Department</option>	-->		
+	       			<option value="CAD">Cultural Affairs Department</option>
+	       				
+	       			<!--  <option value="44">Dairy Development Department</option>	-->		
+	       			<option value="DAIRY DEVELOPMENT">Dairy Development Department</option>
+	       				
+	       			<!--  <option value="3">Devaswom Department</option>	-->		
+	       			<option value="DVM">Devaswom Department</option>
+	       				
+	       			<!--  <option value="45">Environment Department</option>	-->		
+	       			<option value="ENVT">Environment Department</option>
+	       				
+	       			<!--  <option value="22">Excise Department</option>	-->		
+	       			<option value="EXE">Excise Department</option>
+	       				
+	       			<!--  <option value="4">Finance Department</option>	-->		
+	       			<option value="FIN">Finance Department</option>
+	       				
+	       			<!--  <option value="38">Fisheries Department</option>	-->		
+	       			<option value="FSH">Fisheries Department</option>
+	       				
+	       			<!--  <option value="5">Forest & Wild Life Department</option>	-->		
+	       			<option value="FOR">Forest & Wild Life Department</option>
+	       				
+	       			<!--  <option value="46">General Administration Department</option>	-->		
+	       			<option value="GAD">General Administration Department</option>
+	       				
+	       			<!--  <option value="6">General Education Department</option>	-->		
+	       			<option value="GED">General Education Department</option>
+	       				
+	       			<!--  <option value="8">Health & Family Welfare Department</option>	-->		
+	       			<option value="HFW">Health & Family Welfare Department</option>
+	       				
+	       			<!--  <option value="7">Higher Education Department</option>	-->		
+	       			<option value="HED">Higher Education Department</option>
+	       				
+	       			<!--  <option value="9">Home Department</option>	-->		
+	       			<option value="HOM">Home Department</option>
+	       				
+	       			<!--  <option value="10">Housing Department</option>	-->		
+	       			<option value="HSG">Housing Department</option>
+	       				
+	       			<!--  <option value="11">Industries  Department</option>	-->		
+	       			<option value="IND">Industries  Department</option>
+	       				
+	       			<!--  <option value="27">Industries  Department - Cashew</option>	-->		
+	       			<option value="CAS">Industries  Department - Cashew</option>
+	       				
+	       			<!--  <option value="37">Industries  Department - KINFRA</option>	-->		
+	       			<option value="INDKF">Industries  Department - KINFRA</option>
+	       				
+	       			<!--  <option value="48">Information and Public Relations Department</option>	-->		
+	       			<option value="IPRD">Information and Public Relations Department</option>
+	       				
+	       			<!--  <option value="12">Information Technology Department</option>	-->		
+	       			<option value="ITD">Information Technology Department</option>
+	       				
+	       			<!--  <option value="47">Irrigation Department</option>	-->		
+	       			<option value="IDRB">Irrigation Department</option>
+	       				
+	       			<!--  <option value="13">Labour and Skills Department</option>	-->		
+	       			<option value="LBR">Labour and Skills Department</option>
+	       				
+	       			<!--  <option value="49">Law Department</option>	-->		
+	       			<option value="LAW">Law Department</option>
+	       				
+	       			<!--  <option value="14">Local Self Government Department</option>	-->		
+	       			<option value="LSG">Local Self Government Department</option>
+	       				
+	       			<!--  <option value="50">Norka Department</option>	-->		
+	       			<option value="NORKA">Norka Department</option>
+	       				
+	       			<!--  <option value="51">Parliamentary Affairs Department</option>	-->		
+	       			<option value="PAD">Parliamentary Affairs Department</option>
+	       				
+	       			<!--  <option value="52">Personnel & Administrative Reforms Department</option>	-->		
+	       			<option value="PARD">Personnel & Administrative Reforms Department</option>
+	       				
+	       			<!--  <option value="53">Planning & Economic Affairs Department</option>	-->		
+	       			<option value="PEA">Planning & Economic Affairs Department</option>
+	       				
+	       			<!--  <option value="16">Ports Departmenet</option>	-->		
+	       			<option value="PRT">Ports Departmenet</option>
+	       				
+	       			<!--  <option value="15">Power Department</option>	-->		
+	       			<option value="POW">Power Department</option>
+	       				
+	       			<!--  <option value="28">Printing and Stationery Department</option>	-->		
+	       			<option value="HEDP">Printing and Stationery Department</option>
+	       				
+	       			<!--  <option value="17">Public Works Department</option>	-->		
+	       			<option value="PWD">Public Works Department</option>
+	       				
+	       			<!--  <option value="21">Registration Department</option>	-->		
+	       			<option value="RGD">Registration Department</option>
+	       				
+	       			<!--  <option value="18">Revenue Department</option>	-->		
+	       			<option value="REV">Revenue Department</option>
+	       				
+	       			<!--  <option value="19">SC Department</option>	-->		
+	       			<option value="SCD">SC Department</option>
+	       				
+	       			<!--  <option value="35">Scheduled Caste Development Department</option>	-->		
+	       			<option value="SCDD">Scheduled Caste Development Department</option>
+	       				
+	       			<!--  <option value="36">Scheduled Tribe Development Department</option>	-->		
+	       			<option value="STDD">Scheduled Tribe Development Department</option>
+	       				
+	       			<!--  <option value="54">Social Justice Department</option>	-->		
+	       			<option value="SJD">Social Justice Department</option>
+	       				
+	       			<!--  <option value="20">Sports & Youth Affairs Department</option>	-->		
+	       			<option value="SYA">Sports & Youth Affairs Department</option>
+	       				
+	       			<!--  <option value="55">Stores Purchase Department</option>	-->		
+	       			<option value="SPD">Stores Purchase Department</option>
+	       				
+	       			<!--  <option value="23">Taxes Department</option>	-->		
+	       			<option value="TAX">Taxes Department</option>
+	       				
+	       			<!--  <option value="25">Tourism Department</option>	-->		
+	       			<option value="TSM">Tourism Department</option>
+	       				
+	       			<!--  <option value="24">Transport  Department</option>	-->		
+	       			<option value="TRA">Transport  Department</option>
+	       				
+	       			<!--  <option value="30">Transport  Department -  Inland Water Transport</option>	-->		
+	       			<option value="TRDIW">Transport  Department -  Inland Water Transport</option>
+	       				
+	       			<!--  <option value="32">Transport  Department - Kannur Airport</option>	-->		
+	       			<option value="TRDKA">Transport  Department - Kannur Airport</option>
+	       				
+	       			<!--  <option value="33">Transport  Department - Kochi Metro</option>	-->		
+	       			<option value="TRDKM">Transport  Department - Kochi Metro</option>
+	       				
+	       			<!--  <option value="31">Transport  Department - Light Metro</option>	-->		
+	       			<option value="TRDLM">Transport  Department - Light Metro</option>
+	       				
+	       			<!--  <option value="34">Transport  Department - RRTS</option>	-->		
+	       			<option value="TRDRTS">Transport  Department - RRTS</option>
+	       				
+	       			<!--  <option value="29">Transport  Department - Sabari Rail & JV</option>	-->		
+	       			<option value="TRDS">Transport  Department - Sabari Rail & JV</option>
+	       				
+	       			<!--  <option value="56">Vigilance Department</option>	-->		
+	       			<option value="VIG">Vigilance Department</option>
+	       				
+	       			<!--  <option value="26">Water Resources</option>	-->		
+	       			<option value="WRD">Water Resources</option>
+	       						
+			       </select>  
+			       		<input type="hidden" name="hidDid" id="hidDid" value="0"/>	   
+			    </div>
+             	<div style="display: inline-block;padding-right:5px"> 
+					District:<br/>
+					<select id="optDistrict" name="optDistrict" style="height:35px;width:195px" onchange="populateConstituency()">    
+								<option value="0">--Select District--</option>
+								
+			       				<option value="1">THIRUVANANTHAPURAM</option>		
+			       				
+			       				<option value="2">KOLLAM</option>		
+			       				
+			       				<option value="3">PATHANAMTHITTA</option>		
+			       				
+			       				<option value="4">ALAPPUZHA</option>		
+			       				
+			       				<option value="5">KOTTAYAM</option>		
+			       				
+			       				<option value="6">IDUKKI</option>		
+			       				
+			       				<option value="7">ERNAKULAM</option>		
+			       				
+			       				<option value="8">THRISSUR</option>		
+			       				
+			       				<option value="9">PALAKKAD</option>		
+			       				
+			       				<option value="10">MALAPPURAM</option>		
+			       				
+			       				<option value="11">KOZHIKODE</option>		
+			       				
+			       				<option value="12">WAYANAD</option>		
+			       				
+			       				<option value="13">KANNUR</option>		
+			       				
+			       				<option value="14">KASARAGOD</option>		
+			       						
+						       </select>  			        
+		         <input type="hidden" name="hidSelDist" id="hidSelDist" value="7"/>
+		          </div>
+		          <div style="display: inline-block;padding-right:5px;padding-bottom: 10px"> 
+					Constituency:<br/>
+					<select id="optConstituency" name="optConstituency" style="height:35px;width:250px">	
+			       <option value="0">--- Select ---</option>				     	      
+			       </select>			        
+		         <input type="hidden" name="hidSelConstituency" id="hidSelConstituency" value="0"/>
+		          </div>
+		           <div style="display: inline-block;padding-right:5px;padding-bottom: 10px"> 
+					Status:<br/>
+					<select id="optStatus" name="optStatus" style="height:35px;width:135px">	
+			       <option value="ALL">--- ALL ---</option>
+			       <option value="APRV">Project Approved</option>
+			       <option value="UEVAL">Under Evaluation</option>			     	      
+			       </select>			        
+		         <input type="hidden" name="hidStatus" id="hidStatus" value="ALL"/>
+		          </div>
+		           <div style="display: inline-block;"> 
+		          <input type="button" value="GO" id="btnSubmit" name="btnSubmit" class="btn btn-primary" onclick="showProjects();"/>
+		          <span style="padding-left:5px;"></span>
+		           <input type="button" value="SHOW All" id="btnShowAll" name="btnShowAll" class="btn btn-info" style="" onclick="window.location='prjStatus.jsp'"/>
+		           <span style="padding-left:10px;"></span>
+		           <input type="button" value="PROJECT INFO" id="btnCancel" name="btnCancel" class="btn btn-primary" style="background-color: #c7c8c8;float: right;margin-right:5px" onclick="window.location='index.jsp#services'"/>	
+            	</div>
+            	
+            	<div style="padding-top:15px;overflow-x: scroll;">
+					<table id="tblProjects" class="display" style="line-height:normal; color:#275aa1;width:100%" >
+		             <thead>
+		                <tr>		                	
+		                    <th style="width:20%;"><u>Department</u></th>
+		                    <th><u>Project&nbsp;Name</u></th>
+		                    <th style="width:25%;"><u>SPV</u></th>	
+		                    <th style="width:15%;"><u>Approved&nbsp;Amount</u>&nbsp;(<i class="fa fa-rupee"></i>)</th>		<!-- Total&nbsp;OutLay -->                   
+		                    <th style="width:20%;"><u>Payment&nbsp;Released</u></th>
+		                    <th style="width:20%;"><u>Status</u></th>	<!-- Status/Progress -->
+		                </tr>
+		            </thead>
+		            <tbody>
+		          		   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ye5vi1r');" style="cursor: pointer;">
+			
+					  		 <td>Cultural Affairs Department</td>	
+					  		<td>Setting up of Cinema Theater Complex in Kakkanad</td>	
+						    <td>KERALA STATE FILM DEVELOPMENT CORPORATION LTD</td>						  		    						    
+						    <td>223370196.18</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wa9zf4u');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>Reformation of damaged sunken sea wall and Construction of Groyne Field at Challanam</td>	
+						    <td>KERALA IRRIGATION INFRASTRUCTURE DEVELOPMENT CORPORATION LTD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wa9zh2s');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>WRD005 - KOCHI PH CIRCLE</td>	
+						    <td>KERALA WATER AUTHORITY</td>						  		    						    
+						    <td>249752646</td>
+						    <td>37562070</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wb8yd6w');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>WRD005 - MOOVATTUPUZHA PH CIRCLE</td>	
+						    <td>KERALA WATER AUTHORITY</td>						  		    						    
+						    <td>177076000</td>
+						    <td>88412454</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wc7xg3t');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>Reformation of sunken Sea wall and construction of Groyne fields at Chellanam</td>	
+						    <td>KERALA IRRIGATION INFRASTRUCTURE DEVELOPMENT CORPORATION LTD</td>						  		    						    
+						    <td>3626463312</td>
+						    <td>3462253499</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wd6we5v');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>Water supply Distribution strengthening of Kadamakudy Panchayath</td>	
+						    <td>KERALA WATER AUTHORITY</td>						  		    						    
+						    <td>120000000</td>
+						    <td>73653769</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6we5vc7x');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>Construction of a Regulator with Lock across Konothupuzha River at Puthenkavu </td>	
+						    <td>KERALA IRRIGATION INFRASTRUCTURE DEVELOPMENT CORPORATION LTD</td>						  		    						    
+						    <td>257580808</td>
+						    <td>198015859</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wh2sj0q');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>WSS TO PAINGOTOOR PANCHAYATH IN ERNAKULAM DISTRICT</td>	
+						    <td>KERALA WATER AUTHORITY</td>						  		    						    
+						    <td>288155012.70</td>
+						    <td>47779583</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wi1ra9z');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>Augmentation of WSS to Karumallur and Kunnukara Panchayaths</td>	
+						    <td>KERALA WATER AUTHORITY</td>						  		    						    
+						    <td>485279650</td>
+						    <td>30810105</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vd6wi1r');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>IMPROVEMENT WORKS TO ANTHAKARATHODU IN THRIPUNITHURA MUNICIPALITY, ERNAKULAM DISTRICT</td>	
+						    <td>KERALA IRRIGATION INFRASTRUCTURE DEVELOPMENT CORPORATION LTD</td>						  		    						    
+						    <td>112305573</td>
+						    <td>110111251.30</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zg3tb8y');" style="cursor: pointer;">
+			
+					  		 <td>Revenue Department</td>	
+					  		<td>CONSTRUCTION OF REVENUE TOWER AT MULANTHURUTHY, ERNAKULAM</td>	
+						    <td>Kerala State Housing Board</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zg3te5v');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>ELAMKULAM SEWERAGE PROJECT</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>3419700000</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zg3ti1r');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>MARKET CANAL</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>297657886</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zg3tj0q');" style="cursor: pointer;">
+			
+					  		 <td>Power Department</td>	
+					  		<td>North South Interlink Package - II</td>	
+						    <td>KSEBL TRANSGRID</td>						  		    						    
+						    <td>2365777325</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zh2sc7x');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>RECONSTRUCTION OF SUBASH CHANDRA BOSE ROAD BRIDGE IN CHILAVANNUR CANAL </td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>49224091.91</td>
+						    <td>2100493</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zh2se5v');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>Urban Regeneration and Integrated Water Transport System in Cochin LA</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>5665100000</td>
+						    <td>642458268</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zi1ra9z');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>Urban Regeneration and Integrated Water Transport System in Cochin - Rev01</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zi1re5v');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>CONSTRUCTION OF BOAT JETTIES IN CHILAVANNOOR CANAL</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zi1rf4u');" style="cursor: pointer;">
+			
+					  		 <td>Industries Department</td>	
+					  		<td>Petrochemical Park - Land Acquisition</td>	
+						    <td>Kerala Industrial Infrastructure Development Corporation [KINFRA]</td>						  		    						    
+						    <td>9774657000</td>
+						    <td>9774656820</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zj0qd6w');" style="cursor: pointer;">
+			
+					  		 <td>Power Department</td>	
+					  		<td>Kochi Lines Package</td>	
+						    <td>KSEBL TRANSGRID</td>						  		    						    
+						    <td>3727300000</td>
+						    <td>21219132726</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8ya9zj0qh2s');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>CHILAVANNUR CANAL FRONT ACTIVATION</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>164638308</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8ya9zd6w');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>DESILTING AND CLEANING WORKS IN MANGALAVANAM CANAL</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yb8yb8y');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>MUTTAR SEWERAGE PROJECT</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>3120348924</td>
+						    <td>327386400</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yb8yd6w');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>DEVELOPMENT OF GOVERNMENT MAHARAJA?S TALUK HOSPITAL, KARUVELIPPADI, KOCHI</td>	
+						    <td>Kerala State Housing Board</td>						  		    						    
+						    <td>296755333</td>
+						    <td>2680700.60</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yb8ye5v');" style="cursor: pointer;">
+			
+					  		 <td>Fisheries Department</td>	
+					  		<td>Establishment of Translational Research Centre, KUFOS Panangad</td>	
+						    <td>Kerala University Of Fisheries & Ocean Studies</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yb8yf4u');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>CHILAVANNUR BUND ROAD BRIDGE</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>390664651</td>
+						    <td>184043841.78</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yb8yj0q');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>DREDGING AND DESILTING WORKS IN CHILAVANNUR CANAL (PHASE 01)</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>84061719.30</td>
+						    <td>46982057.41</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yc7xf4u');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>CONSTRUCTION OF BRIDGE ACROSS THEVARA CANAL </td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yc7xg3t');" style="cursor: pointer;">
+			
+					  		 <td>Industries Department</td>	
+					  		<td>Development of Global CITY as part of KBIC-Land Acqusition</td>	
+						    <td>Kerala Industrial Infrastructure Development Corporation [KINFRA]</td>						  		    						    
+						    <td>8400000000</td>
+						    <td>8400000000</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yc7xh2s');" style="cursor: pointer;">
+			
+					  		 <td>Power Department</td>	
+					  		<td>AIS Substation Package-1</td>	
+						    <td>KSEBL TRANSGRID</td>						  		    						    
+						    <td>1415403126</td>
+						    <td>1330776268</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yc7xj0q');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>SLUM REMOVAL</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>1061316449</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yd6wb8y');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>PERANDOOR SEWERAGE PROJECT</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>2060610608</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yd6wd6w');" style="cursor: pointer;">
+			
+					  		 <td>Power Department</td>	
+					  		<td>220KV GIS Package - I (Aluva, Kaloor, Kunnamangalam and Brahmapuram bays)</td>	
+						    <td>KSEBL TRANSGRID</td>						  		    						    
+						    <td>2248200000</td>
+						    <td>4926078699</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yd6we5v');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>DREDGING AND DESILTING WORKS IN EDAPALLY CANAL</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8yd6wi1r');" style="cursor: pointer;">
+			
+					  		 <td>Tourism Department</td>	
+					  		<td>KOCHI MUZIRIS BIENNALE - Acquiring Land as Part of forming a Permanent Venue</td>	
+						    <td>Kerala Tourism Infrastructure Ltd</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8ye5vb8y');" style="cursor: pointer;">
+			
+					  		 <td>Industries Department</td>	
+					  		<td>DEVELOPMENT OF INDUSTRIAL PARK BY TAKEOVER OF LAND FROM M/s HINDUSTAN NEWSPRINT LTD - LAND ACQUISITION AND DEVELOPMENT WORKS</td>	
+						    <td>Kerala Industrial Infrastructure Development Corporation [KINFRA]</td>						  		    						    
+						    <td>2006000000</td>
+						    <td>2912034000</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yb8ye5vc7x');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>VENNALA SEWERAGE PROJECT</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>4656838817</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yd6we5va9z');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>CUSAT Translational Research Centre </td>	
+						    <td>COCHIN UNIVERSITY OF SCIENCE AND TECHNOLOGY</td>						  		    						    
+						    <td>262796390</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yd6we5vb8y');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>Girls Hostel and International Students Hostel at CUSAT</td>	
+						    <td>COCHIN UNIVERSITY OF SCIENCE AND TECHNOLOGY</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yd6we5ve5v');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>Detailed Project Report for Procurement of laboratory Equipment</td>	
+						    <td>COCHIN UNIVERSITY OF SCIENCE AND TECHNOLOGY</td>						  		    						    
+						    <td>1422400000</td>
+						    <td>822421876.35</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yd6wh2sg3t');" style="cursor: pointer;">
+			
+					  		 <td>Sports & Youth Affairs Department</td>	
+					  		<td>Construction of Olympian Chandrasekharan Indoor Stadium at Muvattupuzha, Ernakulam</td>	
+						    <td>SPORTS KERALA FOUNDATION</td>						  		    						    
+						    <td>442210251</td>
+						    <td>54533160</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yf4ui1rb8y');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Ernakulam-Idukki Phase-3 Cluster</td>	
+						    <td>INKEL LIMITED</td>						  		    						    
+						    <td>90000000</td>
+						    <td>328732600</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yf4uj0qb8y');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>Medical College Kochi-New Block, Staff Quarters and Allied Infrastructure</td>	
+						    <td>INKEL LIMITED</td>						  		    						    
+						    <td>2866623514.49</td>
+						    <td>2327533224.82</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yg3tb8yb8y');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>Ernakulam Cluster Phase-3</td>	
+						    <td>KITCO LTD</td>						  		    						    
+						    <td>163636098</td>
+						    <td>150413261.28</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yg3te5vc7x');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>General Hospital Ernakulam - Construction of Super Specialty Block & Infrastructure and service Up-gradation</td>	
+						    <td>INKEL LIMITED</td>						  		    						    
+						    <td>765000000</td>
+						    <td>581657390.53</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yg3te5vd6w');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>Ernakulam cluster phase 1</td>	
+						    <td>KITCO LTD</td>						  		    						    
+						    <td>60088302</td>
+						    <td>53041100.82</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yg3tf4uh2s');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>Govt. Polytechnic Perumbavoor, Govt. Polytechnic Vandiperiyar</td>	
+						    <td>KITCO LTD</td>						  		    						    
+						    <td>195618831</td>
+						    <td>187271718.52</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yg3tg3tb8y');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>Augmentation of Infrastructural Facilities at Maharaja's College Ernakulam</td>	
+						    <td>KITCO LTD</td>						  		    						    
+						    <td>194984985</td>
+						    <td>158445145.02</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('b8yh2sa9ze5v');" style="cursor: pointer;">
+			
+					  		 <td>Sports & Youth Affairs Department</td>	
+					  		<td>Construction of Stadium at Chelad, Kothamangalam, Ernakulam</td>	
+						    <td>SPORTS KERALA FOUNDATION</td>						  		    						    
+						    <td>171460757</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xb8yi1rg3t');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>Development of TH Kothamangalam</td>	
+						    <td>HLL INFRA TECH SERVICES LTD</td>						  		    						    
+						    <td>112137330</td>
+						    <td>91686439</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xb8yj0qj0q');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>INTERNATIONAL STUDENTS HOSTEL & GIRLS HOSTEL AT CUSAT</td>	
+						    <td>HLL INFRA TECH SERVICES LTD</td>						  		    						    
+						    <td>368494520</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xd6we5vg3t');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Idukki Ernakulam cluster</td>	
+						    <td>Kerala Institute of Local Administration</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xd6wg3te5v');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Ernakulam, Alappuzha, Kannur, Malappuram, Kasargod</td>	
+						    <td>Kerala Institute of Local Administration</td>						  		    						    
+						    <td>102877406</td>
+						    <td>21680916</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xd6wj0qc7x');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>Ernakulam Thrissur cluster phase 1</td>	
+						    <td>KERALA INFRASTRUCTURE AND TECHNOLOGY FOR EDUCATION</td>						  		    						    
+						    <td>296760000</td>
+						    <td>287209692</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xd6wj0qg3t');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>PPE Mission-Upgradation of one school in each constituency-Ernakulam District Phase-1</td>	
+						    <td>KERALA INFRASTRUCTURE AND TECHNOLOGY FOR EDUCATION</td>						  		    						    
+						    <td>100000000</td>
+						    <td>186629902</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xd6wj0qi1r');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Kollam, Kottayam, Ernakulam Cluster-Phase 2</td>	
+						    <td>KERALA INFRASTRUCTURE AND TECHNOLOGY FOR EDUCATION</td>						  		    						    
+						    <td>180000000</td>
+						    <td>195057319</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xe5vb8yj0q');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Ernakulam Cluster-Phase III</td>	
+						    <td>KERALA INFRASTRUCTURE AND TECHNOLOGY FOR EDUCATION</td>						  		    						    
+						    <td>200000000</td>
+						    <td>727573224</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xe5vc7xg3t');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Trivandrum, Kollam, Ernakulam</td>	
+						    <td>Kerala Institute of Local Administration</td>						  		    						    
+						    <td>139399490</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xe5vd6we5v');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Ernakulam and Kottayam - Cluster 7</td>	
+						    <td>Kerala Institute of Local Administration</td>						  		    						    
+						    <td>190817802</td>
+						    <td>748160700</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xe5ve5vb8y');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Ernakulam Cluster Phase 2</td>	
+						    <td>KERALA INFRASTRUCTURE AND TECHNOLOGY FOR EDUCATION</td>						  		    						    
+						    <td>38600000</td>
+						    <td>356317698</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xe5ve5vh2s');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Trivandrum, Kollam, Malappuram, Thrissur, Alapuzha</td>	
+						    <td>Kerala Institute of Local Administration</td>						  		    						    
+						    <td>129239754</td>
+						    <td>36390755</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xe5vi1rc7x');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Alappuzha, Ernakulam, Kottayam and Idukki - Cluster 28</td>	
+						    <td>Kerala Institute of Local Administration</td>						  		    						    
+						    <td>201569338</td>
+						    <td>404671050</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xe5vi1rg3t');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Ernakulam & Idukki cluster - Phase 1</td>	
+						    <td>KERALA INFRASTRUCTURE AND TECHNOLOGY FOR EDUCATION</td>						  		    						    
+						    <td>120000000</td>
+						    <td>248510870</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('c7xe5vj0qg3t');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Idukki- Ernakulam-Thrissur Cluster Phase 8</td>	
+						    <td>KERALA INFRASTRUCTURE AND TECHNOLOGY FOR EDUCATION</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wf4uf4ue5v');" style="cursor: pointer;">
+			
+					  		 <td>Fisheries Department</td>	
+					  		<td>STRENGTHENING OF FISH MARKETING  INFRASTRUCTURE OF SEVEN COASTAL  DISTRICTS OF THE STATE </td>	
+						    <td>KERALA STATE COASTAL AREA DEVELOPMENT CORPORATION LIMITED</td>						  		    						    
+						    <td>201208851</td>
+						    <td>6181856</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wf4ug3th2s');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>Construction of 10 bedded isolation wards in 140 LAC</td>	
+						    <td>KERALA MEDICAL SERVICES CORPORATION LIMITED</td>						  		    						    
+						    <td>2363038160</td>
+						    <td>15836560614</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wf4uh2sa9z');" style="cursor: pointer;">
+			
+					  		 <td>Fisheries Department</td>	
+					  		<td>Educational Infrastructure Works of Ernakulam and Kasargod Districts Phase -2</td>	
+						    <td>KERALA STATE COASTAL AREA DEVELOPMENT CORPORATION LIMITED</td>						  		    						    
+						    <td>48449903</td>
+						    <td>45615584</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wf4uh2sb8y');" style="cursor: pointer;">
+			
+					  		 <td>Fisheries Department</td>	
+					  		<td>Strengthening of Fish Marketing Infrastructure in 5 Districts of the State</td>	
+						    <td>KERALA STATE COASTAL AREA DEVELOPMENT CORPORATION LIMITED</td>						  		    						    
+						    <td>172365924</td>
+						    <td>35221381</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wf4ui1rf4u');" style="cursor: pointer;">
+			
+					  		 <td>Fisheries Department</td>	
+					  		<td>Educational Infrastructure Works at Ernakulam and Thrissur  Districts Phase-1</td>	
+						    <td>KERALA STATE COASTAL AREA DEVELOPMENT CORPORATION LIMITED</td>						  		    						    
+						    <td>49734841</td>
+						    <td>85899764</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wf4ui1rj0q');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>Procurement of Medical Equipment and Hospital Furniture at TH Kothamangalam</td>	
+						    <td>KERALA MEDICAL SERVICES CORPORATION LIMITED</td>						  		    						    
+						    <td>11453590</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wf4uj0qh2s');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>Procurement of all medical equipments & hospital Furnitures for Cochin Cancer Research Centre</td>	
+						    <td>KERALA MEDICAL SERVICES CORPORATION LIMITED</td>						  		    						    
+						    <td>651936699</td>
+						    <td>421131474</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wg3ta9zc7x');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>Procurement of all medical equipments & hospital Furnitures for MCH Ernakulam</td>	
+						    <td>KERALA MEDICAL SERVICES CORPORATION LIMITED</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wg3ta9zg3t');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>Procurement of all medical equipments & hospital Furnitures for MCH Ernakulam</td>	
+						    <td>KERALA MEDICAL SERVICES CORPORATION LIMITED</td>						  		    						    
+						    <td>458989337</td>
+						    <td>297600445</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('d6wg3tb8yi1r');" style="cursor: pointer;">
+			
+					  		 <td>Health & Family Welfare</td>	
+					  		<td>Setting up of Cathlab & CCU</td>	
+						    <td>KERALA MEDICAL SERVICES CORPORATION LIMITED</td>						  		    						    
+						    <td>800000000</td>
+						    <td>595823992.98</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vc7xe5vf4u');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Ernakulam-Idukki Phase-3 Cluster</td>	
+						    <td>WAPCOS Limited</td>						  		    						    
+						    <td>60000000</td>
+						    <td>113905866</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vd6wj0qd6w');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Urban Sustainable Reconstitution Project, Kochi</td>	
+						    <td>Project implementation Committee USLR</td>						  		    						    
+						    <td>0</td>
+						    <td>49269240</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vd6wj0qf4u');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Urban Rejuvenation and Beautification Scheme - Kochi City </td>	
+						    <td>Cochin Smart Mission Limited</td>						  		    						    
+						    <td>122561800</td>
+						    <td>37508999.76</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vd6wj0qj0q');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Modern Abattoir in Kalloor, Ernakulam</td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>160941817</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5va9ze5v');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Modern Gas Crematoriums for Muvattupuzha, Aluva, Ponnanni and Wadakkanchery municipalities</td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>71471980</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5va9zj0q');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Modern Crematorium                                                                                                   </td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>292770174</td>
+						    <td>70751024</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5vb8yb8y');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Construction of Abattoirs for Angamaly and Irinjalakuda Municipalities</td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5vb8yf4u');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Modernization of Market in Kalady GP</td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>128708879</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5vc7xb8y');" style="cursor: pointer;">
+			
+					  		 <td>Planning and Economic Affairs Department</td>	
+					  		<td>Developing Skill Ecosystem for Work Near Home</td>	
+						    <td>Kerala Development and Innovation Strategic Council</td>						  		    						    
+						    <td>363034085</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5vc7xf4u');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Construction of 4 no.s STP/ETP for GCDA</td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5ve5vg3t');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Construction of Gas Crematoriums for Koorachund GP, Karukutty GP & Kayamkulam Municipality</td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>103793375</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5vf4ua9z');" style="cursor: pointer;">
+			
+					  		 <td>SC&ST Department</td>	
+					  		<td>STDD - Construction of Pre-Metric Hostel for 100 Boys at Pinavoorkudi in Ernakulam District</td>	
+						    <td>KERALA STATE CONSTRUCTION CORPORATION LTD.</td>						  		    						    
+						    <td>39195826</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5vf4ui1r');" style="cursor: pointer;">
+			
+					  		 <td>Registration Department</td>	
+					  		<td>Cluster III - Construction of Sub Registrar Offices at Thopramkudi, Udumbanchola at Mundiyeruma, Thodupuzha in Idukki District, Kaduthuruthi in Kottayam District,Construction of Registration Complex i</td>	
+						    <td>KERALA STATE CONSTRUCTION CORPORATION LTD.</td>						  		    						    
+						    <td>181664018</td>
+						    <td>100208548</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5vg3tb8y');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>DPR for Modernization of Market in Aluva Municipality and Vatakara Municipality</td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>246289864</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5ve5vg3td6w');" style="cursor: pointer;">
+			
+					  		 <td>Local Self Government Department</td>	
+					  		<td>Municipal Buildings - Koothatukulam and Pattambi Municipalities</td>	
+						    <td>INVESTMENT IN MUNICIPAL AND PANCHAYAT ASSET CREATION FOR TRANSFORMATION KERALA LTD</td>						  		    						    
+						    <td>174281753</td>
+						    <td>34782992</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vi1rd6wj0q');" style="cursor: pointer;">
+			
+					  		 <td>Coastal Shipping & Inland Navigation Department</td>	
+					  		<td>CHILAVANNUR CANAL DEVELOPMENT (PHASE_02)</td>	
+						    <td>KOCHI METRO RAIL LIMITED</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vi1rh2sc7x');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2016-17 Four laning works to Kakkanad Thankalam road in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vi1ri1ri1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td> FOUR LANING OF MUVATTUPUZHA KAKKANAD ROAD IN ERNAKULAM DISTRICT</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('e5vj0qa9ze5v');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>16. Construction of Airport Seaport Road - Kalamssery Aluva</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>7220458234</td>
+						    <td>5698861948</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ua9zb8ye5v');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB-2016-17 Construction of Nayarambalam Herbert bridge in Vypin constituency in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>103970152</td>
+						    <td>7126077</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4uc7xg3tf4u');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18- Improvements of Thammanam-Pullepady Road in Ernakulam District.</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>938989600</td>
+						    <td>5513501</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ud6wa9zi1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvements to Kizhakkambalam-Pancode road ch. 0/000 to 5/400, Pancode-Vadavucodu road ch. 0/000 to 2/640, PazhamthottamVadavucodu road ch.0/000 to2/655, Peringala-Puthencruz road ch. 0/000 to 6/100</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ud6wb8yj0q');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18 Improvements to Pulluvazhy Paniyeliporu Road (Stretch 1 - Ch.0/000 to Ch.6/400) in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>50740000</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ud6wd6wb8y');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvements to Mannur-Ponjassery road ch 0/000 to 11/500</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>265064539</td>
+						    <td>456665628</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ud6we5vi1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvements to Choondy-Ramamangalam road ch 0/000 to 5/800, Kolenchery-Poothrikka road ch 0/000 to 3/500, Meempara-Thiruvaniyoor road ch 0/000 to4/000, Puthencruz-Kurinji road Ch 0/000 to 2/170 and Thiruvaniyoor-Vettickal road 0/000 to 2/530</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ud6wf4uj0q');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18 Construction of Kumbalangi Kandakkadavu Road ch:0/000 to 2/500 in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ud6wg3tb8y');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Hill Highway-Vettilappara-Eucaly Jn- Abhayaranyam (Elevated road)-Chettinada road in Ernakulam district-- Stretch 4 - From Illithode to Chettinada via Abhayaranyam (Elevated road) (Ch 0/000 to Ch 1/895)</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>320945479</td>
+						    <td>199665</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vc7xb8y');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>CONSTRUCTION OF HILL HIGHWAY CHETTINADA-PANAMKUZHY JUNCTION PAYYAL-CHERANGANALIN ERANAKULAM DISTRICT</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>762640000</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vc7xd6w');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB- Construction of Iringole ? Vallam Ring Road in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vc7xg3t');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Hill Highway Project- Vettilappara-Kappela-Ayyampuzha- Naduvattom-Eucaly Junction- Abhayaranyam (Elevated Road) - Chettinada (40 km) road in Ernakulam District- Stretch III ( Eucaly Junction to Illithode (6.16km)</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>348416920</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vd6wa9z');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvements to Hill Highway - Cheranganal to Neriamangalam Ch 0/000 to 32/800 in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>655700000</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vd6we5v');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18 Improvement works to Thadiyittaparambu, Vallamkadavu Road in Aluva LAC in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>810969543</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vd6wg3t');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18 Four Laning of SN Junction -Poothotta Road in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>4500000000</td>
+						    <td>8021064</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5ve5ve5v');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvement works to Plamudy Kottappady Panipra- Irumalappady Ooramkuzhy Road from Km 0/000 to 16/653 in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>226600000</td>
+						    <td>72910444</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vf4ue5v');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>IMPROVEMENTS TO MURINGOOR - EZHATTUMUGHAM ROAD FROM KM 0/000 ? 17/205, THRISSUR DISTRICT</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>390524747</td>
+						    <td>354302038.33</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vf4ui1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Construction of Vypin - Pallipuram parallel road ch 0/000 to 21/160 in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vg3td6w');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18 - Improvements and Developments to Muvattupuzha  - Koothattukulam Road Km 0/000 to 15/600 in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>4503300000</td>
+						    <td>10000000</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vh2sj0q');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvements to Mamala - Piravom Road in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>118100000</td>
+						    <td>101711086</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vj0qa9z');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvements to Manackakadavu Kizhakkambalam Pattimattom</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>326300000</td>
+						    <td>279821468</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vj0qf4u');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB - Hill Highway - Vettilappara - Chettinada Road via Abhayaranyam (40 km) road in Ernakulam District - Stretch 1 and 2 - Vettilapara - Nellichode - Cutting Junction - Vellappara - Eladakkad - Chulli - Manjapra - Eucali Junction (Ch. 0/000 to 23/269) </td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>1050150000</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4ue5vj0qi1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvements to Kothamangalam Perumbankuthu Road From Km 11/300 to 19/000 in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>220925192.24</td>
+						    <td>219386731</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4uf4ua9zi1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Hill Highway Project- Vettilappara - Chettinada road (Stretch I - Vettilappara to Kappela - Ch. km 0/000 to 8/720) </td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>412277860</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4uf4uc7xi1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18 - Improvements to Aluva - Munnar road 0/000 to 35/226 and bypass road 0/000-3/065</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>6530560956</td>
+						    <td>7803376</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('f4uf4ud6wj0q');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18 Widening and Improvements of Paravur-Cherai Road in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6wa9ze5v');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Construction of ROB in lieu of existing LC No. 69 A at Vaduthala, Ernakulam</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>918971835</td>
+						    <td>697863045</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6wa9zi1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB - Construction of Muvattupuzha Town Bypass road (Murikallu Bypass Road) in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>1202436923</td>
+						    <td>579845000</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6wb8yg3t');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Kundannur Junction Development</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>105310771</td>
+						    <td>5104217</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6wd6wb8y');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Construction of Kuthiyathodu- Kundoor Bridge in Thrissur District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>107741906</td>
+						    <td>20467</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6wd6wf4u');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Construction of Perumbavoor Bypass</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>3017199751</td>
+						    <td>691319018.19</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6we5vd6w');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Improvements to HMT Junction in Ernakulam District </td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>61815744</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6wg3ti1r');" style="cursor: pointer;">
+			
+					  		 <td>Higher Education Department</td>	
+					  		<td>International Center of Excellence in Academic and Research</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>994800000</td>
+						    <td>305016271.44</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6wh2si1r');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>ATLANTIS ROB</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>897737353.88</td>
+						    <td>592720551</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3td6wi1ra9z');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Construction of Angamaly-Kochi Airport bypass</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>2755240480</td>
+						    <td>5391207</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3te5vc7xj0q');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>CONSTRUCTION OF AZHIKODE-MUNAMBAM BRIDGE IN THRISSUR DISTRICT</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>2001468922.02</td>
+						    <td>1331602068</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3te5vd6wf4u');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Purayar Railway Over Bridge</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>537063978</td>
+						    <td>125192436.22</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3te5vd6wj0q');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Coastal Highway Reach 2 - Fort Vypin  to Munambam in Ernakulam district</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>7389200000</td>
+						    <td>3009184937</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3te5ve5vj0q');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Construction of Coastal Highway - Improvement of Road from South Chellanam to Fort kochi Via Veli junction - Km 0/000 to km 21/400 in Ernakulam District</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3te5vf4uc7x');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Coastal Highway Reach 1 - South Chellanam to Fort Kochi in Ernakulam district (19 km)</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>1846028492.47</td>
+						    <td>8338447</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3te5vg3tc7x');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>CONSTRUCTION OF SIX LANE FLY OVER AT VYTTILA JUNCTION kM 348/380 OF NH 47 NEW NH 544</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>863400000</td>
+						    <td>755616460</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3te5vj0qe5v');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>Construction of ROB at Kureekad LC 11at Railway Km 13/500-600</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>368873000</td>
+						    <td>5103840</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3tf4ua9zh2s');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>CONSTRUCTION OF FLYOVER AT KUNDANNOOR</td>	
+						    <td>ROADS AND BRIDGES DEVELOPMENT CORPORATION OF KERALA LTD</td>						  		    						    
+						    <td>827400000</td>
+						    <td>822426168.15</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3tf4ub8ya9z');" style="cursor: pointer;">
+			
+					  		 <td>Public Works Department</td>	
+					  		<td>KIIFB 2017-18 CONSTRUCTION OF KADAMAKKUDY - PIZHALA BRIDGE IN ERNAKULAM DISTRICT</td>	
+						    <td>KERALA ROAD FUND BOARD</td>						  		    						    
+						    <td>438776030</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('g3tj0qh2sj0q');" style="cursor: pointer;">
+			
+					  		 <td>Water Resources Department</td>	
+					  		<td>ASE Reformation of damaged sunken sea wall and Allied works using Tetrapods in between CP Stone 1016 and 1047 for 6.1 km stretches along Chellanam coast Phase II</td>	
+						    <td>KERALA IRRIGATION INFRASTRUCTURE DEVELOPMENT CORPORATION LTD</td>						  		    						    
+						    <td>3693872849</td>
+						    <td>0</td>
+						  	<td>Project Approved</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('h2sa9zg3te5v');" style="cursor: pointer;">
+			
+					  		 <td>Planning and Economic Affairs Department</td>	
+					  		<td>Digital Infrastructure for Learning and Skill Enhancement (DILSE) in ITIs Under SC/ST Department </td>	
+						    <td>Kerala Development and Innovation Strategic Council</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('h2sa9zi1rg3t');" style="cursor: pointer;">
+			
+					  		 <td>Planning and Economic Affairs Department</td>	
+					  		<td>Digitization of ITIs :Setting up of Smart Classrooms and Computer/Language Labs</td>	
+						    <td>KERALA ACADEMY FOR SKILLS EXCELLENCE</td>						  		    						    
+						    <td>0</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						   
+		          	  			<!--		<tr>-->      				          			          				          			          		
+					  <tr onclick="selectProject('h2sb8yi1rh2s');" style="cursor: pointer;">
+			
+					  		 <td>General Education Department</td>	
+					  		<td>Ernakulam Cluster Phase 2</td>	
+						    <td>INKEL LIMITED</td>						  		    						    
+						    <td>38600000</td>
+						    <td>0</td>
+						  	<td>Project Under Evaluation</td>
+						  </tr>
+						
+		            </tbody>
+		        </table>
+		        </div>
+		         <input type="hidden" name="hidSelProject" id="hidSelProject" value=""/>
+		        </div>	
+		         </form>	        
+
+		     </div>
+		     </div>   
+		    
+		   
+           
+ 			</div>
+           			
+ 			</div>
+ 		</div>
+ 	
+ 		<br/>
+ 		<br/>
+      <footer id="footer">
+        <div class="container">
+            <div class="row" style="text-align: center;">
+                <!--<div class="col-sm-6" style="width:780px;font-weight: normal;">  -->
+               <div class="col-sm-9" style="font-weight: normal;">
+                    &copy; 2026 KIIFB.&nbsp;|&nbsp;<a href="privacyPolicy.jsp" style="color: #46aed6">Privacy Policy</a>&nbsp;|&nbsp;Developed and Maintained by  IT Software Division, <a target="_blank" href="http://www.finance.kerala.gov.in/" title="Finance Department">Finance Department</a>&nbsp;-&nbsp;<a target="_blank" href="http://www.kerala.gov.in/" title="Government of Kerala">Government of Kerala.</a>
+                </div>
+                <div class="col-sm-3">
+                    <ul class="social-icons">
+                       <li><a href="https://www.facebook.com/GovkeralaInfrastructureInvestmentFundBoard/" target="_blank"><i class="fa fa-facebook"></i></a></li>
+                       <li><a href="https://www.linkedin.com/company/kiifb" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+                       <li><a href="https://www.youtube.com/channel/UCSnUWJUVYPndiHMp8xxEwIw" target="_blank"><i class="fa fa-youtube"></i></a></li>          			  
+                        <li><a href="https://wa.me/919072000430" target="_blank"><i class="fa fa-whatsapp"></i></a></li>
+                        <!-- 
+                         <li><a href="#"><i class="fa fa-twitter"></i></a></li>
+                         <li><a href="#"><i class="fa fa-flickr"></i></a></li>    
+                        <li><a href="#"><i class="fa fa-google-plus"></i></a></li>
+                        <li><a href="#"><i class="fa fa-pinterest"></i></a></li>
+                        <li><a href="#"><i class="fa fa-dribbble"></i></a></li>
+                        <li><a href="#"><i class="fa fa-behance"></i></a></li>
+                        
+                        <li><a href="#"><i class="fa fa-github"></i></a></li>
+                         -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer><!--/#footer-->
+
+	
+    <script src="js/bootstrap.min.js"></script>    
+    <script src="js/owl.carousel.min.js"></script>
+    <script src="js/mousescroll.js"></script>
+    <script src="js/smoothscroll.js"></script>
+    <script src="js/jquery.prettyPhoto.js"></script>
+    <script src="js/jquery.isotope.min.js"></script>
+    <script src="js/jquery.inview.min.js"></script>
+    <script src="js/wow.min.js"></script>
+    <script src="js/main.js"></script>
+		
+	<script src="js/topmnu/modernizr.custom.js"></script>
+	    <script src="js/topmnu/cbpHorizontalSlideOutMenu.js"></script>
+	    <script>
+		var menu = new cbpHorizontalSlideOutMenu( document.getElementById( 'cbp-hsmenu-wrapper' ) );
+	</script>
+	
+	<script>
+	function showLogin()
+	{
+		document.getElementById('lgnMenu').style.display = "block";		
+	}
+	
+	function hideLogin()
+	{
+		document.getElementById('lgnMenu').style.display = "none";
+	}
+	</script>
+</body>
+</html>

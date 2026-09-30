@@ -224,6 +224,7 @@ pub struct Home {
     pub stages: Vec<Facet>,
     pub points: Vec<Point>,
     pub changes: Vec<RecentChange>,
+    pub funding: FundingTotals,
 }
 
 pub async fn home(db: &D1Database) -> Result<Home> {
@@ -246,6 +247,7 @@ pub async fn home(db: &D1Database) -> Result<Home> {
                 "SELECT p.code, p.title_en, o.field, o.old_value, o.new_value, o.observed_on
                  FROM observations o JOIN projects p ON p.id = o.project_id ORDER BY o.id DESC LIMIT 6",
             ),
+            db.prepare(FUNDING_TOTALS),
         ])
         .await?;
     Ok(Home {
@@ -257,6 +259,7 @@ pub async fn home(db: &D1Database) -> Result<Home> {
         stages: results[5].results()?,
         points: results[6].results()?,
         changes: results[7].results()?,
+        funding: results[8].results::<FundingTotals>()?.into_iter().next().unwrap_or_default(),
     })
 }
 
@@ -300,11 +303,21 @@ pub struct Sibling {
     pub flag_count: u32,
 }
 
+/// The KIIFB status-page project a map package was joined to.
+#[derive(Debug, Deserialize)]
+pub struct FundingLink {
+    pub record_json: String,
+    pub detail_checked_at: Option<String>,
+    /// Positions of the works whose title matches this package, comma-separated.
+    pub own_works: Option<String>,
+}
+
 pub struct ProjectPage {
     pub row: ProjectRow,
     pub flags: Vec<FlagRow>,
     pub observations: Vec<ObservationRow>,
     pub siblings: Vec<Sibling>,
+    pub funding: Option<FundingLink>,
 }
 
 pub async fn project(db: &D1Database, code: &str) -> Result<Option<ProjectPage>> {
@@ -340,11 +353,28 @@ pub async fn project(db: &D1Database, code: &str) -> Result<Option<ProjectPage>>
                  ORDER BY COALESCE(expenditure, 0) DESC, code LIMIT 8",
                 code,
             )?,
+            query!(
+                db,
+                &format!(
+                    "SELECT f.record_json, f.detail_checked_at,
+                            (SELECT group_concat(w.seq) FROM funding_works w
+                              WHERE w.funding_project_id = f.id AND w.project_code = ?1) AS own_works
+                     FROM funding_projects f JOIN projects p ON {FUNDING_JOIN}
+                     WHERE p.code = ?1 AND f.missing_since IS NULL LIMIT 1"
+                ),
+                code,
+            )?,
         ])
         .await?;
 
     let Some(row) = results[0].results::<ProjectRow>()?.into_iter().next() else { return Ok(None) };
-    Ok(Some(ProjectPage { row, flags: results[1].results()?, observations: results[2].results()?, siblings: results[3].results()? }))
+    Ok(Some(ProjectPage {
+        row,
+        flags: results[1].results()?,
+        observations: results[2].results()?,
+        siblings: results[3].results()?,
+        funding: results[4].results::<FundingLink>()?.into_iter().next(),
+    }))
 }
 
 pub async fn last_checked(db: &D1Database) -> Result<Option<String>> {
@@ -380,4 +410,184 @@ pub async fn export(db: &D1Database) -> Result<Vec<ExportRow>> {
     .all()
     .await?
     .results()
+}
+
+/// A status-page project belongs to the map packages filed under the same sub-project with the same estimate.
+const FUNDING_JOIN: &str = "f.group_key = COALESCE(p.sub_project_code, p.code) AND f.approved_amount = p.estimated_amount";
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum FundingSort {
+    #[default]
+    Approved,
+    Released,
+    /// Approved but not yet released.
+    Balance,
+    Name,
+}
+
+impl FundingSort {
+    pub const ALL: [FundingSort; 4] = [FundingSort::Approved, FundingSort::Released, FundingSort::Balance, FundingSort::Name];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            FundingSort::Approved => "approved",
+            FundingSort::Released => "released",
+            FundingSort::Balance => "balance",
+            FundingSort::Name => "name",
+        }
+    }
+
+    pub fn parse(s: &str) -> FundingSort {
+        FundingSort::ALL.into_iter().find(|sort| sort.as_str() == s).unwrap_or_default()
+    }
+
+    fn order_by(self) -> &'static str {
+        match self {
+            FundingSort::Approved => "COALESCE(f.approved_amount, 0) DESC, f.name",
+            FundingSort::Released => "COALESCE(f.released_amount, 0) DESC, f.name",
+            FundingSort::Balance => "COALESCE(f.approved_amount, 0) - COALESCE(f.released_amount, 0) DESC, f.name",
+            FundingSort::Name => "f.name COLLATE NOCASE",
+        }
+    }
+}
+
+/// One project from KIIFB's status page, as a list row.
+#[derive(Debug, Deserialize)]
+pub struct FundingRow {
+    #[serde(rename = "ref")]
+    pub reference: String,
+    pub name: String,
+    pub department: Option<String>,
+    pub spv: Option<String>,
+    pub approved_amount: Option<i64>,
+    pub released_amount: Option<i64>,
+    pub work_count: u32,
+    pub over_paid_works: u32,
+    /// Map packages this project was joined to.
+    pub packages: u32,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct FundingTotals {
+    pub total: u32,
+    pub approved: Option<i64>,
+    pub released: Option<i64>,
+    pub evaluating: u32,
+    pub works: u32,
+    pub last_checked: Option<String>,
+}
+
+const FUNDING_TOTALS: &str = "SELECT COUNT(*) AS total, SUM(approved_amount) AS approved, SUM(released_amount) AS released,
+        COALESCE(SUM(approved_amount IS NULL), 0) AS evaluating, COALESCE(SUM(work_count), 0) AS works,
+        (SELECT last_scraped_at FROM sources WHERE id = 2) AS last_checked
+    FROM funding_projects WHERE missing_since IS NULL";
+
+pub async fn funding_list(db: &D1Database, sort: FundingSort) -> Result<(Vec<FundingRow>, FundingTotals)> {
+    let results = db
+        .batch(vec![
+            db.prepare(format!(
+                "SELECT f.ref, f.name, f.department, f.spv, f.approved_amount, f.released_amount, f.work_count, f.over_paid_works,
+                        (SELECT COUNT(*) FROM projects p WHERE {FUNDING_JOIN}) AS packages
+                 FROM funding_projects f WHERE f.missing_since IS NULL ORDER BY {}",
+                sort.order_by()
+            )),
+            db.prepare(FUNDING_TOTALS),
+        ])
+        .await?;
+    Ok((results[0].results()?, results[1].results::<FundingTotals>()?.into_iter().next().unwrap_or_default()))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FundingDetailRow {
+    pub record_json: String,
+    pub first_seen_on: String,
+    pub missing_since: Option<String>,
+    pub match_basis: Option<String>,
+    pub snapshot_id: i64,
+    pub fetched_at: String,
+    pub detail_snapshot_id: Option<i64>,
+    pub detail_checked_at: Option<String>,
+    pub last_checked: Option<String>,
+}
+
+/// A work whose title matches a map package.
+#[derive(Debug, Deserialize)]
+pub struct WorkLink {
+    pub seq: u32,
+    pub project_code: String,
+}
+
+pub struct FundingPage {
+    pub row: FundingDetailRow,
+    pub links: Vec<WorkLink>,
+    pub packages: Vec<Sibling>,
+    pub observations: Vec<ObservationRow>,
+}
+
+pub async fn funding_project(db: &D1Database, reference: &str) -> Result<Option<FundingPage>> {
+    const ID: &str = "(SELECT id FROM funding_projects WHERE ref = ?1)";
+    let results = db
+        .batch(vec![
+            query!(
+                db,
+                "SELECT f.record_json, f.first_seen_on, f.missing_since, f.match_basis, f.snapshot_id, s.fetched_at,
+                        f.detail_snapshot_id, f.detail_checked_at,
+                        (SELECT last_scraped_at FROM sources WHERE id = 2) AS last_checked
+                 FROM funding_projects f JOIN snapshots s ON s.id = f.snapshot_id WHERE f.ref = ?1",
+                reference,
+            )?,
+            query!(
+                db,
+                &format!("SELECT seq, project_code FROM funding_works WHERE funding_project_id = {ID} AND project_code IS NOT NULL"),
+                reference,
+            )?,
+            query!(
+                db,
+                &format!(
+                    "SELECT p.code, p.title_en, p.expenditure, p.flag_count FROM projects p JOIN funding_projects f ON {FUNDING_JOIN}
+                     WHERE f.ref = ?1 ORDER BY COALESCE(p.expenditure, 0) DESC, p.code LIMIT 80"
+                ),
+                reference,
+            )?,
+            query!(
+                db,
+                &format!(
+                    "SELECT field, old_value, new_value, observed_on FROM funding_observations
+                     WHERE funding_project_id = {ID} ORDER BY id DESC LIMIT 40"
+                ),
+                reference,
+            )?,
+        ])
+        .await?;
+    let Some(row) = results[0].results::<FundingDetailRow>()?.into_iter().next() else { return Ok(None) };
+    Ok(Some(FundingPage { row, links: results[1].results()?, packages: results[2].results()?, observations: results[3].results()? }))
+}
+
+/// Every status-page project, for the open-data endpoints.
+#[derive(Debug, Deserialize)]
+pub struct FundingExportRow {
+    pub record_json: String,
+    pub group_key: Option<String>,
+    pub match_basis: Option<String>,
+    pub first_seen_on: String,
+    pub changed_on: String,
+    pub missing_since: Option<String>,
+}
+
+pub async fn funding_export(db: &D1Database) -> Result<(Vec<FundingExportRow>, Option<String>)> {
+    let results = db
+        .batch(vec![
+            db.prepare(
+                "SELECT record_json, group_key, match_basis, first_seen_on, changed_on, missing_since
+                 FROM funding_projects ORDER BY COALESCE(approved_amount, 0) DESC, name",
+            ),
+            db.prepare("SELECT last_scraped_at FROM sources WHERE id = 2"),
+        ])
+        .await?;
+    #[derive(Deserialize)]
+    struct Checked {
+        last_scraped_at: Option<String>,
+    }
+    let checked = results[1].results::<Checked>()?.into_iter().next().and_then(|row| row.last_scraped_at);
+    Ok((results[0].results()?, checked))
 }

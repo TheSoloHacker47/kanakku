@@ -14,6 +14,7 @@ use crate::db::{ListRow, Point};
 use crate::http::{encode_segment, CSS};
 use crate::{district, icons};
 
+pub mod funding;
 pub mod home;
 pub mod list;
 pub mod pages;
@@ -23,6 +24,7 @@ pub mod project;
 pub enum Nav {
     Home,
     Projects,
+    Funding,
     Map,
     Methodology,
     Data,
@@ -87,6 +89,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                         a.brand href=(href("/")) { (logo()) (t.site_name) }
                         nav aria-label=(lang.pick("പ്രധാന മെനു", "Main")) {
                             (link(Nav::Projects, "/projects", t.nav_projects))
+                            (link(Nav::Funding, "/funding", lang.pick("പണം", "Money")))
                             (link(Nav::Map, "/map", t.nav_map))
                             (link(Nav::Methodology, "/methodology", t.nav_methodology))
                             (link(Nav::Data, "/data", t.nav_data))
@@ -109,6 +112,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                             ul {
                                 li { a href=(href("/projects")) { (t.nav_projects) } }
                                 li { a href=(href("/projects?flag=any")) { (lang.pick("സൂചനയുള്ള പദ്ധതികൾ", "Flagged projects")) } }
+                                li { a href=(href("/funding")) { (funding::title(lang)) } }
                                 li { a href=(href("/map")) { (t.nav_map) } }
                                 li { a href=(href("/methodology")) { (t.nav_methodology) } }
                                 li { a href=(href("/data")) { (t.nav_data) } }
@@ -118,6 +122,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                             h2 { (lang.pick("ഡാറ്റ", "Data")) }
                             ul {
                                 li { a href="https://gis.kiifb.org/" rel="noopener" { (t.source_kiifb) } }
+                                li { a href="https://www.kiifb.org/prjStatus.jsp" rel="noopener" { (lang.pick("കിഫ്ബി പ്രോജക്ട് സ്റ്റാറ്റസ്", "KIIFB project status")) } }
                                 li {
                                     (lang.pick("അവസാനം പരിശോധിച്ചത്", "Last checked")) ": "
                                     @match &checked { Some(date) => (date), None => "—" }

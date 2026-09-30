@@ -147,15 +147,19 @@ pub async fn run(env: &Env, pushed: Option<Vec<u8>>) -> Result<Report> {
     Ok(report)
 }
 
-async fn fetch_page(env: &Env) -> Result<Vec<u8>> {
+/// Identifies the scraper, with a way to reach us when one is configured.
+pub(crate) fn user_agent(env: &Env) -> String {
     let contact = env.var("CONTACT").map(|v| v.to_string()).unwrap_or_default();
-    let agent = if contact.is_empty() {
-        "KanakkuBot/0.1 (public project accountability; one request a day)".to_string()
+    if contact.is_empty() {
+        "KanakkuBot/0.1 (public project accountability; nightly)".to_string()
     } else {
-        format!("KanakkuBot/0.1 (public project accountability; one request a day; {contact})")
-    };
+        format!("KanakkuBot/0.1 (public project accountability; nightly; {contact})")
+    }
+}
+
+async fn fetch_page(env: &Env) -> Result<Vec<u8>> {
     let headers = Headers::new();
-    headers.set("User-Agent", &agent)?;
+    headers.set("User-Agent", &user_agent(env))?;
     let mut init = RequestInit::new();
     init.with_headers(headers);
     let mut response = Fetch::Request(Request::new_with_init(kiifb::SOURCE_URL, &init)?).send().await?;
@@ -429,7 +433,7 @@ fn audit(db: &D1Database, action: &str, project_code: &str, diff: &serde_json::V
 }
 
 /// D1 runs each batch as one transaction; chunking keeps every call comfortably small.
-async fn run_batches(db: &D1Database, mut statements: Vec<D1PreparedStatement>) -> Result<()> {
+pub(crate) async fn run_batches(db: &D1Database, mut statements: Vec<D1PreparedStatement>) -> Result<()> {
     while !statements.is_empty() {
         let rest = statements.split_off(statements.len().min(BATCH_SIZE));
         db.batch(statements).await?;
@@ -438,7 +442,7 @@ async fn run_batches(db: &D1Database, mut statements: Vec<D1PreparedStatement>) 
     Ok(())
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
     for b in bytes {

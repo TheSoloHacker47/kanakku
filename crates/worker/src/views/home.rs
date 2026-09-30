@@ -9,7 +9,7 @@ use kanakku_core::Date;
 use maud::{html, Markup, PreEscaped};
 use worker::url::form_urlencoded::byte_serialize;
 
-use super::{big_amount, department_icon, dot_map, en, icon, layout, meter, project_row, Nav, Page};
+use super::{big_amount, department_icon, dot_map, en, funding, icon, layout, meter, project_row, Nav, Page};
 use crate::db::Home;
 use crate::http::encode_segment;
 use crate::icons;
@@ -104,6 +104,22 @@ pub fn render(lang: Lang, origin: &str, data: &Home) -> String {
                         (lang.pick("അവസാനം പരിശോധിച്ചത്", "last checked"))
                         span { (lang.pick("ദിവസവും കിഫ്ബി ഡാഷ്ബോർഡുമായി", "against the KIIFB dashboard, daily")) }
                     }
+                }
+            }
+
+            @if data.funding.total > 0 {
+                section.sec {
+                    div.sec-h {
+                        div {
+                            h2.d2 { (funding::title(lang)) }
+                            p { (lang.pick(
+                                "കിഫ്ബിയുടെ സ്വന്തം പ്രോജക്ട് സ്റ്റാറ്റസ് താളിൽ നിന്ന്: എറണാകുളത്തിന് കീഴിലുള്ള പദ്ധതികൾക്ക് അനുവദിച്ച തുകയും ഇതുവരെ നൽകിയ തുകയും. ചിലത് പല ജില്ലകളിലായുള്ളവയാണ്.",
+                                "From KIIFB's own project status page: what it approved for the projects listed under Ernakulam, and what it has released. Some span several districts.",
+                            )) }
+                        }
+                        a.more href=(format!("{p}/funding")) { (lang.pick("ഓരോ പദ്ധതിയും", "Project by project")) (icon(icons::ARROW_RIGHT)) }
+                    }
+                    (funding::totals_panels(lang, &data.funding, true))
                 }
             }
 

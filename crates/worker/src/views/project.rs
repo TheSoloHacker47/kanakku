@@ -12,7 +12,7 @@ use kanakku_core::{kiifb, Date};
 use maud::{html, Markup};
 use worker::url::form_urlencoded::byte_serialize;
 
-use super::{big_amount, department_icon, dot_map, en, icon, layout, meter, Nav, Page};
+use super::{big_amount, department_icon, dot_map, en, funding, icon, layout, meter, Nav, Page};
 use crate::db::ProjectPage;
 use crate::http::encode_segment;
 use crate::icons;
@@ -220,6 +220,8 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
                     }
                 }
             }
+
+            @if let Some(link) = &data.funding { (funding::project_section(lang, link, project.estimate_shared_by)) }
 
             div.cols.sec {
                 section {

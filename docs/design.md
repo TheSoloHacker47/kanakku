@@ -162,3 +162,39 @@ Rejected on purpose: indigo or violet accents, cream-and-serif "editorial" styli
 ### Cost
 
 Pages other than the map still load no JavaScript. A first visit now also fetches the fonts (about 120 KB, cached for a year). HTML grew from about 5 KB to 9 to 14 KB compressed because the stylesheet is larger and the front page carries the dot map.
+
+## Build 3: what KIIFB approved and released (PER-849)
+
+A second source: `https://www.kiifb.org/prjStatus.jsp`. Found during the tender spike (`docs/tender-spike.md`).
+
+**What it adds.** For each project KIIFB lists under the district: the amount approved, the amount released, and a table of works with approved and paid amounts. 140 projects and 529 works for Ernakulam on 30 Sep 2026.
+
+**How it is read** (`crates/worker/src/funding.rs`)
+
+- One form post lists the district. The parsed rows are hashed; the page is stored in R2 only when they change.
+- A project's work table costs one more post. These are read for projects that are new or whose list figures moved, plus the ten longest-unchecked each night, one at a time with a one-second pause. A first load is 141 requests; a normal night is 11.
+- Only the detail panel (a few KB) is kept as evidence for a work table, not the whole 105 KB page.
+- `POST /admin/ingest?source=status&details=N` runs it by hand, capped at N work tables.
+
+**How the two sources are joined** (`kiifb_status::link`)
+
+The status page and the map dashboard share no identifier. A status "project" is a dashboard sub-project, and its "works" are the dashboard's packages.
+
+- Join when approved amount equals the sub-project estimate to the rupee, the department is the same, and the implementing agency is the same, and exactly one record fits on each side.
+- If the agency differs, join only when the names share at least half their distinctive words.
+- If more than one record fits, do not join.
+- A work joins a package only when the published titles are identical after removing case and punctuation.
+
+Result on 30 Sep 2026: 53 of 140 status projects joined, covering 204 of the 306 map packages; 144 works joined to a package. Every joined project but three also had a work title match, which is independent confirmation.
+
+**Decisions**
+
+| Decision | Why |
+|---|---|
+| Separate tables (`funding_projects`, `funding_works`, `funding_observations`) | The source has its own identity and history; unjoined projects still get a page |
+| Zero approval is stored as "not approved yet"; zero paid is stored as zero | "Under evaluation" projects show 0 approved; a work with nothing paid is a real state |
+| "Paid above approval" needs more than 1% | The first version fired on a ₹1 difference caused by rounding paise |
+| No flag rule yet for paid above approval | Flags hang off map projects and need a published rule version; it is shown as a plain statement for now |
+| Totals are labelled as not Ernakulam's alone | School clusters and similar projects span districts |
+
+**Pages:** `/funding` (list, four sort orders), `/f/{ref}` (one project and its works), a section on `/p/{code}` for joined packages, a block on the front page, `/api/v1/funding` and `/api/v1/funding.csv`.

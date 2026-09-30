@@ -65,6 +65,12 @@ cargo run -p kanakku-core --release --example inspect -- page.html Ernakulam 202
 
 A cron trigger runs at 02:30 IST. It fetches `https://gis.kiifb.org/` once, and only that page. If the data has changed it stores the page in R2, updates the projects that changed and records each changed field. Flags are recomputed on every run, because "overdue" depends on today's date.
 
+The same trigger then reads KIIFB's project status page (`https://www.kiifb.org/prjStatus.jsp`) through its public form: one request for the district list, then one per project whose figures changed, plus ten of the longest-unchecked, with a second's pause between requests. To run it by hand, capped at 40 work tables:
+
+```sh
+curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" "https://<your-domain>/admin/ingest?source=status&details=40"
+```
+
 If KIIFB blocks Cloudflare's addresses, fetch the page from a machine in India and push it instead:
 
 ```bash

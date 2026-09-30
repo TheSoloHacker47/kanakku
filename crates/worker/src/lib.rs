@@ -10,6 +10,7 @@ use worker::{
 mod api;
 mod db;
 mod district;
+mod funding;
 mod http;
 mod icons;
 mod ingest;
@@ -40,6 +41,11 @@ async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     match ingest::run(&env, None).await {
         Ok(report) => console_log!("ingest ok: {}", serde_json::to_string(&report).unwrap_or_default()),
         Err(e) => console_error!("ingest failed: {e}"),
+    }
+    // The two sources fail independently; one being down must not stop the other.
+    match funding::run(&env, funding::DEFAULT_DETAILS).await {
+        Ok(report) => console_log!("status ingest ok: {}", serde_json::to_string(&report).unwrap_or_default()),
+        Err(e) => console_error!("status ingest failed: {e}"),
     }
 }
 
@@ -108,6 +114,16 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
         "/methodology" => http::html(views::pages::methodology(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
         "/data" => http::html(views::pages::data(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
         "/map" => http::html(views::pages::map(lang, origin, checked().await?.as_deref()), 200, Policy::Map),
+        "/funding" => {
+            let sort = req.url()?.query_pairs().find(|(key, _)| key == "sort").map(|(_, v)| db::FundingSort::parse(&v)).unwrap_or_default();
+            let (rows, totals) = db::funding_list(&db, sort).await?;
+            http::html(views::funding::list(lang, origin, sort, &rows, &totals), 200, Policy::Page)
+        }
+        "/api/v1/funding" => {
+            let (rows, checked) = db::funding_export(&db).await?;
+            http::data(api::funding_json(&rows, checked.as_deref()), "application/json; charset=utf-8")
+        }
+        "/api/v1/funding.csv" => http::data(api::funding_csv(&db::funding_export(&db).await?.0), "text/csv; charset=utf-8"),
         "/api/v1/projects" => {
             let rows = db::export(&db).await?;
             http::data(api::projects_json(&rows, db::last_checked(&db).await?.as_deref()), "application/json; charset=utf-8")
@@ -125,6 +141,11 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
                     Some((project, data)) => http::data(api::project_json(&project, &data), "application/json; charset=utf-8"),
                     None => Response::error("{\"error\":\"no such project\"}", 404),
                 };
+            } else if let Some(reference) = rest.strip_prefix("/f/").filter(|r| is_code(r)) {
+                if let Some(data) = db::funding_project(&db, reference).await? {
+                    let project = serde_json::from_str(&data.row.record_json).map_err(|e| Error::RustError(e.to_string()))?;
+                    return http::html(views::funding::detail(lang, origin, &project, &data), 200, Policy::Page);
+                }
             } else if let Some(id) = rest.strip_prefix("/snapshot/").and_then(|id| id.parse::<i64>().ok()) {
                 return snapshot(env, &db, id).await;
             }
@@ -229,6 +250,13 @@ async fn admin(mut req: Request, env: &Env) -> Result<Response> {
     }
     if !authorised(&req, env) {
         return Response::error("Unauthorised", 401);
+    }
+    let url = req.url()?;
+    let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, value)| value.into_owned());
+    if param("source").as_deref() == Some("status") {
+        // `details` caps how many work tables this run reads, so a first load can be done in steps.
+        let details = param("details").and_then(|n| n.parse().ok()).unwrap_or(funding::DEFAULT_DETAILS);
+        return Response::from_json(&funding::run(env, details).await?);
     }
     // A body is a copy of the dashboard page pushed from elsewhere; without one we fetch it.
     let body = req.bytes().await?;

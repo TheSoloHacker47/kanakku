@@ -8,6 +8,7 @@ pub mod fmt;
 pub mod gaps;
 pub mod i18n;
 pub mod kiifb;
+pub mod kiifb_status;
 pub mod model;
 pub mod names;
 pub mod stage;

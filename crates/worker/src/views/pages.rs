@@ -96,6 +96,21 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                     "We read KIIFB's integrated dashboard (gis.kiifb.org) once a day. We store a new copy only when its contents have changed, and every field that changed is recorded on the project's page.",
                 )) }
 
+                p { (lang.pick(
+                    "കിഫ്ബിയുടെ പ്രോജക്ട് സ്റ്റാറ്റസ് താളും (kiifb.org/prjStatus.jsp) ദിവസവും വായിക്കുന്നു. അതിൽ ഓരോ പദ്ധതിക്കും അനുവദിച്ച തുകയും നൽകിയ തുകയും, ഓരോ പ്രവൃത്തിക്കും അനുവദിച്ചതും നൽകിയതും ഉണ്ട്. തുക മാറിയ പദ്ധതികളുടെ പ്രവൃത്തിപ്പട്ടിക അന്നുതന്നെ വീണ്ടും വായിക്കും; മറ്റുള്ളവ ഊഴമനുസരിച്ച്, ഓരോ രാത്രിയും കുറച്ചെണ്ണം വീതം.",
+                    "We also read KIIFB's project status page (kiifb.org/prjStatus.jsp) once a day. It gives, for each project, the amount approved and the amount released, and the same for each work. When a project's figures move we re-read its work table the same night; the rest are re-read in turn, a few each night.",
+                )) }
+
+                h2 #join { (lang.pick("രണ്ട് ഉറവിടങ്ങൾ ചേർക്കുന്നത്", "Joining the two sources")) }
+                p { (lang.pick(
+                    "കിഫ്ബിയുടെ ഈ രണ്ട് താളുകൾക്കും പൊതുവായ തിരിച്ചറിയൽ നമ്പറില്ല. സ്റ്റാറ്റസ് താളിലെ “പദ്ധതി” ഡാഷ്ബോർഡിലെ ഒരു ഉപപദ്ധതിയാണ്; അതിലെ “പ്രവൃത്തികൾ” ഡാഷ്ബോർഡിലെ കരാർ പാക്കേജുകളും. അനുവദിച്ച തുക (രൂപ വരെ കൃത്യമായി), വകുപ്പ്, നിർവഹണ സ്ഥാപനം എന്നിവ മൂന്നും ഒന്നാണെങ്കിൽ, അങ്ങനെ യോജിക്കുന്നത് ഒന്നു മാത്രമാണെങ്കിൽ, ഞങ്ങൾ അവ ചേർക്കുന്നു. സ്ഥാപനത്തിന്റെ പേര് വ്യത്യസ്തമാണെങ്കിൽ പേരുകളിലെ വാക്കുകൾ ഭൂരിഭാഗവും യോജിക്കണം. ഒന്നിലധികം സാധ്യതകളുണ്ടെങ്കിൽ ചേർക്കില്ല. പ്രവൃത്തികളെ പാക്കേജുകളുമായി ചേർക്കുന്നത് പ്രസിദ്ധീകരിച്ച പേര് അതേപടി ഒന്നാണെങ്കിൽ മാത്രം.",
+                    "KIIFB's two pages share no identifier. A “project” on the status page is a sub-project on the dashboard, and its “works” are the dashboard's contract packages. We join them when the approved amount (to the rupee), the department and the implementing agency all agree and only one record fits. Where the agency is named differently, most of the words in the names must agree. Where more than one record could fit, we do not join. A work is joined to a package only when the published titles are identical.",
+                )) }
+                p { (lang.pick(
+                    "ഒരു പ്രവൃത്തിക്ക് അനുവദിച്ചതിനേക്കാൾ 1 ശതമാനത്തിലധികം കൂടുതൽ നൽകിയതായി കിഫ്ബി കാണിക്കുന്നിടത്ത് ഞങ്ങൾ അത് എടുത്തുപറയുന്നു. അതിലും ചെറിയ വ്യത്യാസങ്ങൾ പൈസയുടെ കണക്കാണ്. ഇത് തെറ്റ് നടന്നതിന്റെ തെളിവല്ല; പുതുക്കിയ അനുമതി താളിൽ വരാത്തതാകാം.",
+                    "Where KIIFB shows a work paid more than 1% above what was approved for it, we say so. Smaller differences are paise and rounding. This is not evidence of wrongdoing; a revised approval may simply not be shown on the page.",
+                )) }
+
                 h2 { (lang.pick("പരിമിതികൾ", "Limitations")) }
                 @match lang {
                     Lang::Ml => ul {
@@ -103,6 +118,7 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                         li { "കണക്കാക്കിയ തുക കിഫ്ബി നൽകുന്നത് ഉപപദ്ധതിയുടെ തലത്തിലാണ്. ഒരു ഉപപദ്ധതിക്ക് കീഴിൽ പല കരാർ പാക്കേജുകളുണ്ടെങ്കിൽ എല്ലാറ്റിലും അതേ തുക ആവർത്തിക്കും; അങ്ങനെയുള്ളിടത്ത് ഞങ്ങൾ അത് വ്യക്തമാക്കുന്നു, തുകകൾ കൂട്ടുന്നില്ല." }
                         li { "കരാറുകാരൻ, തീയതികൾ, പുരോഗതി എന്നിവ റോഡ്, പാലം പ്രവൃത്തികൾക്ക് മാത്രമേ ഡാഷ്ബോർഡിൽ ഉള്ളൂ." }
                         li { "ഭൂപടത്തിലെ സ്ഥാനങ്ങൾ കിഫ്ബി നൽകിയവയാണ്; ചിലത് തെറ്റായിരിക്കാം." }
+                        li { "സ്റ്റാറ്റസ് താളിലെ ചില പദ്ധതികൾ പല ജില്ലകളിലായുള്ളവയാണ്; അവയുടെ തുകകൾ എറണാകുളത്തിന് മാത്രമുള്ളതല്ല. ഡാഷ്ബോർഡിലെ “ചെലവും” സ്റ്റാറ്റസ് താളിലെ “നൽകിയ തുകയും” വ്യത്യസ്ത സംഖ്യകളാണ്; രണ്ടും അതത് ഉറവിടത്തിൽ ഉള്ളതുപോലെ കാണിക്കുന്നു." }
                         li { "“ചെലവ് വർധന”, “പുതിയ വിവരമില്ല” എന്നീ സൂചനകൾ ഞങ്ങൾ ശേഖരണം തുടങ്ങിയ ശേഷമുള്ള മാറ്റങ്ങളെ മാത്രം അടിസ്ഥാനമാക്കിയാണ്." }
                         li { "പദ്ധതികളുടെ പേരുകൾ കിഫ്ബി ഇംഗ്ലീഷിലാണ് പ്രസിദ്ധീകരിക്കുന്നത്. തലക്കെട്ടിൽ ഞങ്ങൾ ഫയൽ കോഡുകൾ നീക്കുകയും വലിയക്ഷരങ്ങൾ സാധാരണ രൂപത്തിലാക്കുകയും ചെയ്യുന്നു; യഥാർത്ഥ പേര് താളിൽ കാണാം." }
                         li { "മണ്ഡലങ്ങളുടെ പേരുകൾ കിഫ്ബി പല രീതിയിൽ എഴുതുന്നു (Vypeen, Vypin, Vyppin). ഞങ്ങൾ അവ ഒന്നാക്കുന്നു. എം.എൽ.എമാരുടെ പേരുകൾ കിഫ്ബി പട്ടികയിൽ ഉള്ളതുപോലെയാണ്." }
@@ -112,6 +128,7 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                         li { "KIIFB states the estimated amount per sub-project. Where several contract packages sit under one sub-project, each repeats the same estimate; we say so on the page and never add those estimates up." }
                         li { "The dashboard gives contractor, dates and progress only for road and bridge works." }
                         li { "Map locations are the ones KIIFB records; some may be wrong." }
+                        li { "Some projects on the status page span several districts, so their amounts are not Ernakulam's alone. The dashboard's “expenditure” and the status page's “released” are different figures; we show each as its source states it." }
                         li { "“Cost escalation” and “No recent update” rely only on changes since we began collecting." }
                         li { "KIIFB publishes project names in English. In headlines we drop filing codes and calm all-capital titles; the name as published is shown on the page." }
                         li { "KIIFB spells constituencies several ways (Vypeen, Vypin, Vyppin). We merge them. MLA names are as KIIFB lists them." }
@@ -135,10 +152,12 @@ pub fn data(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
         "ഈ സൈറ്റിലെ എല്ലാ വിവരങ്ങളും യന്ത്രങ്ങൾക്ക് വായിക്കാവുന്ന രൂപത്തിൽ ലഭ്യമാണ്. ലോഗിൻ വേണ്ട.",
         "Everything on this site is available in machine-readable form. No login is needed.",
     );
-    let endpoints: [(&str, &str, &str, &str); 3] = [
+    let endpoints: [(&str, &str, &str, &str); 5] = [
         ("/api/v1/projects.csv", "CSV", "സ്പ്രെഡ്ഷീറ്റിൽ തുറക്കാൻ: എല്ലാ പദ്ധതികളും", "All projects, for spreadsheets"),
         ("/api/v1/projects", "JSON", "എല്ലാ പദ്ധതികളും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "All projects, with their works"),
         ("/api/v1/projects.geojson", "GeoJSON", "പദ്ധതി സ്ഥാനങ്ങൾ", "Project locations"),
+        ("/api/v1/funding.csv", "CSV", "അനുവദിച്ചതും നൽകിയതും: ഓരോ പ്രവൃത്തിയും ഒരു വരി", "Approved and paid, one row per work"),
+        ("/api/v1/funding", "JSON", "അനുവദിച്ചതും നൽകിയതും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "Approved and released, with works"),
     ];
     let body = html! {
         (head(lang, t.data_title, lead))
@@ -172,8 +191,12 @@ pub fn data(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
                         "“estimated_amount” belongs to the sub-project; do not sum it where “estimate_shared_by” is greater than one.",
                     )) }
                     li { (lang.pick(
-                        "ഉറവിടമായി കിഫ്ബി ഡാഷ്ബോർഡിനെയും സമാഹരിച്ചത് കണക്ക് എന്നും പരാമർശിക്കുക.",
-                        "Credit the KIIFB dashboard as the source and Kanakku as the compiler.",
+                        "“funding” ഫയലുകൾ കിഫ്ബിയുടെ പ്രോജക്ട് സ്റ്റാറ്റസ് താളിൽ നിന്നാണ്. “map_group” ഉണ്ടെങ്കിൽ അത് ഞങ്ങൾ ചേർത്ത ഡാഷ്ബോർഡ് ഉപപദ്ധതിയാണ്; ചേർത്തത് ഞങ്ങളാണ്, കിഫ്ബിയല്ല.",
+                        "The “funding” files come from KIIFB's project status page. Where “map_group” is set, it is the dashboard sub-project we joined it to; the join is ours, not KIIFB's.",
+                    )) }
+                    li { (lang.pick(
+                        "ഉറവിടമായി കിഫ്ബിയെയും സമാഹരിച്ചത് കണക്ക് എന്നും പരാമർശിക്കുക.",
+                        "Credit KIIFB as the source and Kanakku as the compiler.",
                     )) }
                 }
             }
