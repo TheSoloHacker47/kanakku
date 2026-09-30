@@ -358,8 +358,8 @@ pub fn status(lang: Lang, origin: &str, status: &Status, now_ms: i64) -> String 
                     }
                 }
                 p.small.muted { (lang.pick(
-                    "ഓരോ തരം താളും ഓരോ ദിവസം എത്ര തവണ തുറന്നു എന്നു മാത്രം ഞങ്ങൾ എണ്ണുന്നു. കുക്കികളില്ല, ഐ.പി വിലാസങ്ങൾ സൂക്ഷിക്കുന്നില്ല, ആരെയും തിരിച്ചറിയുന്നില്ല. അറിയപ്പെടുന്ന യന്ത്രങ്ങളെ ഒഴിവാക്കുന്നു.",
-                    "We count only how often each kind of page is opened each day. No cookies, no stored addresses, nothing that identifies anyone. Known robots are left out.",
+                    "ഓരോ തരം താളും ഓരോ ദിവസം എത്ര തവണ തുറന്നു എന്നു മാത്രം ഞങ്ങൾ എണ്ണുന്നു. കുക്കികളില്ല, ഐ.പി വിലാസങ്ങൾ സൂക്ഷിക്കുന്നില്ല, ആരെയും തിരിച്ചറിയുന്നില്ല. അറിയപ്പെടുന്ന യന്ത്രങ്ങളെ ഒഴിവാക്കുന്നു. ഒരു തിരച്ചിലിൽ ഒന്നും കിട്ടിയില്ലെങ്കിൽ, തിരച്ചിൽ മെച്ചപ്പെടുത്താൻ ആ വാക്കുകളും അവയുടെ എണ്ണവും മാത്രം സൂക്ഷിക്കുന്നു; ആര് തിരഞ്ഞു എന്നില്ല.",
+                    "We count only how often each kind of page is opened each day. No cookies, no stored addresses, nothing that identifies anyone. Known robots are left out. When a search finds nothing, we keep the words and a count, to improve the search; not who searched.",
                 )) }
             }
         }

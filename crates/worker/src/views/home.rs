@@ -8,7 +8,7 @@ use kanakku_core::title::display_title;
 use kanakku_core::Date;
 use maud::{html, Markup, PreEscaped};
 
-use super::{big_amount, department_icon, dot_map, en, funding, icon, layout, liability, meter, on_dot_map, pair, project_row, Nav, Page};
+use super::{big_amount, dash, department_icon, dot_map, en, funding, icon, layout, liability, meter, on_dot_map, pair, project_row, Nav, Page};
 use crate::db::Home;
 use crate::http::encode_segment;
 use crate::icons;
@@ -110,7 +110,7 @@ pub fn render(lang: Lang, origin: &str, data: &Home, district: &str) -> String {
                     }
                 }
                 a.stat.b href=(scoped("/projects", &["sort=spent".into()])) {
-                    span.num { @match totals.spent { Some(spent) => (big_amount(spent, lang)), None => "—" } }
+                    span.num { @match totals.spent { Some(spent) => (big_amount(spent, lang)), None => (dash(lang)) } }
                     p {
                         (lang.pick("ഇതുവരെ ചെലവ്", "spent so far"))
                         span { (lang.pick("കിഫ്ബി രേഖപ്പെടുത്തിയത്", "as KIIFB reports it")) }
@@ -127,7 +127,7 @@ pub fn render(lang: Lang, origin: &str, data: &Home, district: &str) -> String {
                     span.num {
                         @match checked {
                             Some(date) => { @let (_, m, d) = date.ymd(); (d) " " small { (month(lang, m)) } },
-                            None => "—",
+                            None => (dash(lang)),
                         }
                     }
                     p {
@@ -158,7 +158,7 @@ pub fn render(lang: Lang, origin: &str, data: &Home, district: &str) -> String {
                                 }
                                 span.n {
                                     (d.n) small { (lang.pick("പദ്ധതികൾ", "projects")) }
-                                    @if let Some(flagged) = d.flagged.filter(|n| *n > 0) { " " span.badge.flag { (icon(icons::FLAG)) (flagged) } }
+                                    @if let Some(flagged) = d.flagged.filter(|n| *n > 0) { " " span.badge.flag { (icon(icons::FLAG)) (flagged) span.vh { " " (lang.pick("സൂചനയുള്ളവ", "with a flag")) } } }
                                 }
                             }
                         }
@@ -234,8 +234,13 @@ pub fn render(lang: Lang, origin: &str, data: &Home, district: &str) -> String {
                                     (meter(d.n as f64 / top_department as f64, ""))
                                 }
                                 span.n {
-                                    (d.n)
-                                    small { @match d.spent.filter(|s| *s > 0) { Some(spent) => (inr_short(spent, lang)), None => "—" } }
+                                    (d.n) span.vh { " " (lang.pick("പദ്ധതികൾ", "projects")) }
+                                    small {
+                                        @match d.spent.filter(|s| *s > 0) {
+                                            Some(spent) => { (inr_short(spent, lang)) span.vh { " " (lang.pick("ചെലവ്", "spent")) } },
+                                            None => (dash(lang)),
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -262,7 +267,7 @@ pub fn render(lang: Lang, origin: &str, data: &Home, district: &str) -> String {
                                 @if let Some(mla) = mla { span.small.muted { (mla) } }
                                 span.n {
                                     (c.n) small { (lang.pick("പദ്ധതികൾ", "projects")) }
-                                    @if let Some(flagged) = c.flagged.filter(|n| *n > 0) { " " span.badge.flag { (icon(icons::FLAG)) (flagged) } }
+                                    @if let Some(flagged) = c.flagged.filter(|n| *n > 0) { " " span.badge.flag { (icon(icons::FLAG)) (flagged) span.vh { " " (lang.pick("സൂചനയുള്ളവ", "with a flag")) } } }
                                 }
                             }
                         }

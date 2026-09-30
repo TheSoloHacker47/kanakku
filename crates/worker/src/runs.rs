@@ -1,4 +1,4 @@
-//! The run log, failure alerts and visit counts.
+//! The run log, failure alerts, visit counts and searches that found nothing.
 
 use kanakku_core::i18n::Lang;
 use serde::Serialize;
@@ -126,5 +126,28 @@ pub async fn count_view(env: &Env, kind: &'static str, lang: Lang) {
     };
     if let Err(e) = write.await {
         console_error!("could not count a visit: {e}");
+    }
+}
+
+/// Adds one to today's count for a search that found nothing.
+pub async fn count_miss(env: &Env, surface: &'static str, lang: Lang, query: &str) {
+    let Some(key) = kanakku_core::search::miss_key(query) else { return };
+    let today = kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64).to_iso();
+    let write = async {
+        let db = env.d1("DB")?;
+        query!(
+            &db,
+            "INSERT INTO search_misses (day, surface, lang, q, n) VALUES (?1, ?2, ?3, ?4, 1)
+             ON CONFLICT(day, surface, lang, q) DO UPDATE SET n = n + 1",
+            today,
+            surface,
+            lang.code(),
+            key,
+        )?
+        .run()
+        .await
+    };
+    if let Err(e) = write.await {
+        console_error!("could not count a missed search: {e}");
     }
 }

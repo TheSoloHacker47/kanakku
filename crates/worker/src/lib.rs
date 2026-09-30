@@ -129,6 +129,13 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
     let origin = req.url()?.origin().ascii_serialization();
     let origin = origin.as_str();
     let checked = || async { db::last_checked(&db).await };
+    // A search that finds nothing is noted, so the words it missed can be taught to the search.
+    let person = req.headers().get("User-Agent")?.is_some_and(|ua| !runs::is_robot(&ua));
+    let missed = |surface: &'static str, q: String| async move {
+        if person {
+            runs::count_miss(env, surface, lang, &q).await;
+        }
+    };
 
     match rest {
         // The list used to live at the root; keep old search and filter links working.
@@ -141,6 +148,10 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
         "/projects" => {
             let filter = filter_from(req)?;
             let listing = db::list(&db, &filter).await?;
+            // Only a search on its own: with other filters set, an empty list says little about the words.
+            if listing.totals.total == 0 && !filter.q.is_empty() && (db::Filter { q: String::new(), ..filter.clone() }).is_empty() {
+                missed("projects", filter.q.clone()).await;
+            }
             http::html(views::list::render(lang, origin, &filter, &listing), 200, Policy::Page)
         }
         "/methodology" => http::html(views::pages::methodology(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
@@ -157,6 +168,9 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
                 page: param("page").parse().unwrap_or(1).clamp(1, 10_000),
             };
             let listing = db::funding_list(&db, query.sort, &query.district, &query.q, query.flagged, query.page).await?;
+            if listing.matching == 0 && !query.q.is_empty() && query.district.is_empty() && !query.flagged {
+                missed("funding", query.q.clone()).await;
+            }
             http::html(views::funding::list(lang, origin, &query, &listing), 200, Policy::Page)
         }
         "/contractors" => {
@@ -164,6 +178,9 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, v)| v.trim().chars().take(80).collect::<String>()).unwrap_or_default();
             let (q, page) = (param("q"), param("page").parse().unwrap_or(1).clamp(1, 10_000));
             let (rows, matching) = db::contractors(&db, &q, page).await?;
+            if matching == 0 && !q.is_empty() {
+                missed("contractors", q.clone()).await;
+            }
             http::html(views::entities::contractors(lang, origin, &q, page, &rows, matching), 200, Policy::Page)
         }
         "/agencies" => http::html(views::entities::agencies(lang, origin, &db::agencies(&db).await?), 200, Policy::Page),

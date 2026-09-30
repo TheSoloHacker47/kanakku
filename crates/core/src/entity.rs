@@ -19,6 +19,10 @@ pub fn contractor_key(name: &str) -> String {
         .flat_map(|word| word.chars().filter(|c| c.is_alphanumeric()))
         .collect();
     strip_company_endings(&mut key);
+    // A name with no letters ("0", "-") is a placeholder a source printed, not a contractor.
+    if !key.chars().any(char::is_alphabetic) {
+        key.clear();
+    }
     key
 }
 
@@ -167,6 +171,8 @@ mod tests {
             contractor_key("RAJESHMATHEWANDCOMPANY")
         );
         assert_ne!(contractor_key("P V Stephan"), contractor_key("P V Stephen"));
+        assert_eq!(contractor_key("0"), "", "a placeholder is nobody");
+        assert_eq!(contractor_key(" - "), "");
     }
 
     #[test]

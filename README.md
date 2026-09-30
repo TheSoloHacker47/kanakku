@@ -93,6 +93,8 @@ curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" --data-binary @page.html h
 - Every ingest run is logged. `/status` shows the last good read of each source; `/api/v1/status` answers 503 when a source is stale, so any uptime monitor can watch it.
 - To be told when a run fails, set a webhook (Slack, Discord or similar): `npx wrangler secret put ALERT_WEBHOOK`.
 - Visit counts are per kind of page, language and day. No cookies, addresses or identifiers.
+- Searches that find nothing are kept as words and a daily count (`search_misses`), never with who searched. Text that looks like an email address or phone number is not kept. To read them:
+  `npx wrangler d1 execute kanakku --remote --command "SELECT q, surface, SUM(n) AS n FROM search_misses GROUP BY q, surface ORDER BY n DESC LIMIT 50"`
 
 ## Pages
 

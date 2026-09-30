@@ -7,7 +7,7 @@ use kanakku_core::title::display_title;
 use kanakku_core::Date;
 use maud::{html, Markup};
 
-use super::{big_amount, en, funding, icon, layout, liability, meter, pager, pair, project_row, Nav, Page};
+use super::{big_amount, dash, en, funding, icon, layout, liability, meter, pager, pair, project_row, Nav, Page};
 use crate::db::{AgencyPage, AgencyRow, ContractorPage, ContractorRow, CONTRACTOR_PAGE_SIZE};
 use crate::http::encode_segment;
 use crate::icons;
@@ -153,7 +153,7 @@ pub fn contractor(lang: Lang, origin: &str, key: &str, data: &ContractorPage, to
                         p.num { (big_amount(contract_value, lang)) }
                         p.small { (inr(contract_value)) }
                     } @else {
-                        p.num { "—" }
+                        p.num { (dash(lang)) }
                         p.small { (lang.pick("കിഫ്ബി ഡാഷ്ബോർഡിൽ കരാർ തുക ലഭ്യമല്ല.", "No contract amount on the KIIFB dashboard.")) }
                     }
                 }
@@ -163,7 +163,7 @@ pub fn contractor(lang: Lang, origin: &str, key: &str, data: &ContractorPage, to
                         p.num { (big_amount(paid, lang)) }
                         @if contract_value > 0 && paid <= contract_value { (meter(paid as f64 / contract_value as f64, "")) }
                     } @else {
-                        p.num { "—" }
+                        p.num { (dash(lang)) }
                     }
                 }
                 div.panel {
@@ -194,7 +194,7 @@ pub fn contractor(lang: Lang, origin: &str, key: &str, data: &ContractorPage, to
                                         @if let Some(paid) = w.paid_amount { span { " · " (inr_short(paid, lang)) " " (lang.pick("നൽകി", "paid")) } }
                                     }
                                     span.tags {
-                                        @if w.flag_count > 0 { span.badge.flag { (icon(icons::FLAG)) (w.flag_count) } }
+                                        @if w.flag_count > 0 { span.badge.flag { (icon(icons::FLAG)) (w.flag_count) span.vh { " " (lang.pick("സൂചനകൾ", "flags")) } } }
                                         @if let Some(status) = &w.status { span.badge lang="en" { (status) } }
                                         @if let Some(end) = w.scheduled_end.as_deref().and_then(Date::parse_iso) {
                                             span.badge { (lang.pick("നിശ്ചയിച്ച പൂർത്തീകരണം", "Scheduled end")) " " (end.to_dmy()) }
@@ -280,7 +280,7 @@ pub fn agencies(lang: Lang, origin: &str, rows: &[AgencyRow]) -> String {
                             }
                             @if row.flagged > 0 || row.unread > 0 {
                                 span.tags {
-                                    @if row.flagged > 0 { span.badge.flag { (icon(icons::FLAG)) (row.flagged) } }
+                                    @if row.flagged > 0 { span.badge.flag { (icon(icons::FLAG)) (row.flagged) span.vh { " " (lang.pick("സൂചനയുള്ളവ", "with a flag")) } } }
                                     @if row.unread > 0 { span.badge { (lang.pick("നൽകിയ തുക താൽക്കാലികം", "Paid figure provisional")) } }
                                 }
                             }
@@ -310,7 +310,7 @@ pub fn agency(lang: Lang, origin: &str, data: &AgencyPage) -> String {
             div.panels {
                 div.panel.g {
                     h2 { (lang.pick("കിഫ്ബി അനുവദിച്ചത്", "Approved by KIIFB")) }
-                    @if approved > 0 { p.num { (big_amount(approved, lang)) } p.small { (inr(approved)) } } @else { p.num { "—" } }
+                    @if approved > 0 { p.num { (big_amount(approved, lang)) } p.small { (inr(approved)) } } @else { p.num { (dash(lang)) } }
                 }
                 div.panel {
                     h2 { (lang.pick("ഇതുവരെ നൽകിയത്", "Paid so far")) }
@@ -318,7 +318,7 @@ pub fn agency(lang: Lang, origin: &str, data: &AgencyPage) -> String {
                         p.num { (big_amount(paid, lang)) }
                         p.small { (inr(paid)) }
                         @if approved > 0 && paid <= approved { (meter(paid as f64 / approved as f64, "")) }
-                    } @else { p.num { "—" } }
+                    } @else { p.num { (dash(lang)) } }
                 }
                 div.panel {
                     h2 { (lang.pick("ഭൂപടത്തിലെ പാക്കേജുകൾ", "Packages on the map")) }

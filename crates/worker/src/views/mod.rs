@@ -148,7 +148,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                                 li { a href="https://www.kiifb.org/prjStatus.jsp" rel="noopener" { (lang.pick("കിഫ്ബി പ്രോജക്ട് സ്റ്റാറ്റസ്", "KIIFB project status")) } }
                                 li {
                                     (lang.pick("അവസാനം പരിശോധിച്ചത്", "Last checked")) ": "
-                                    @match &checked { Some(date) => (date), None => "—" }
+                                    @match &checked { Some(date) => (date), None => (dash(lang)) }
                                 }
                                 li { a href="https://www.pwd.kerala.gov.in/IMF_website/Projects/wings_list.php" rel="noopener" { (lang.pick("പി.ഡബ്ല്യു.ഡി ഡി.എൽ.പി പട്ടിക", "PWD liability list")) } }
                                 li { (lang.pick("ഭൂപടം", "Maps")) ": © OpenStreetMap" }
@@ -183,6 +183,11 @@ pub fn icon(inner: &str) -> Markup {
             (PreEscaped(inner))
         }
     }
+}
+
+/// A dash where a source gives no value. Screen readers skip or mangle a bare dash, so they are told "not published".
+pub fn dash(lang: Lang) -> Markup {
+    html! { span aria-hidden="true" { "—" } span.vh { (lang.t().not_reported) } }
 }
 
 /// Text that stays in English on a Malayalam page (KIIFB publishes names and statuses in English).

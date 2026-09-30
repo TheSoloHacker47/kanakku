@@ -24,6 +24,29 @@ function trim(cache) {
   });
 }
 
+// A copy of a page that remembers when it was saved.
+function stamped(response) {
+  var headers = new Headers(response.headers);
+  headers.set("X-Saved-At", new Date().toISOString());
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers: headers });
+}
+
+// A saved page with a line at the top saying it is a saved copy and from which day.
+function dated(saved, english) {
+  var at = new Date(saved.headers.get("X-Saved-At") || saved.headers.get("Date") || "");
+  // The day in India, written as the rest of the site writes dates. Copies saved before this was added have none.
+  var day = isNaN(at) ? "" : new Date(at.getTime() + 330 * 60000).toISOString().slice(0, 10).split("-").reverse().join("-");
+  var text = english
+    ? "You are offline. This is " + (day ? "the copy saved on " + day : "a saved copy") + "; the figures may have changed since."
+    : "ഇപ്പോൾ ഇന്റർനെറ്റ് ഇല്ല. ഇത് " + (day ? day + "-ന് സൂക്ഷിച്ച പകർപ്പാണ്" : "മുമ്പ് സൂക്ഷിച്ച പകർപ്പാണ്") + "; അതിനുശേഷം കണക്കുകൾ മാറിയിരിക്കാം.";
+  var note = '<p class="stale" role="status">' + text + "</p>";
+  var headers = new Headers(saved.headers);
+  ["Content-Length", "Content-Encoding", "ETag"].forEach(function (name) { headers.delete(name); });
+  return saved.text().then(function (html) {
+    return new Response(html.replace('<main id="main">', note + '<main id="main">'), { status: saved.status, statusText: saved.statusText, headers: headers });
+  });
+}
+
 self.addEventListener("fetch", function (event) {
   var request = event.request;
   var url = new URL(request.url);
@@ -35,13 +58,14 @@ self.addEventListener("fetch", function (event) {
     event.respondWith(
       fetch(request).then(function (response) {
         if (response.ok) {
-          var copy = response.clone();
+          var copy = stamped(response.clone());
           caches.open(PAGES).then(function (cache) { return cache.put(request, copy).then(function () { return trim(cache); }); });
         }
         return response;
       }).catch(function () {
+        var english = /^\/en(\/|$)/.test(url.pathname);
         return caches.match(request).then(function (saved) {
-          return saved || caches.match(url.pathname.indexOf("/en") === 0 ? "/en/offline" : "/offline");
+          return saved ? dated(saved, english) : caches.match(english ? "/en/offline" : "/offline");
         });
       })
     );

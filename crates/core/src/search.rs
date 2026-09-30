@@ -244,6 +244,15 @@ fn romanise(word: &str) -> String {
     out
 }
 
+/// A search that found nothing, as it is kept for review: lower-case, single-spaced, at most
+/// 60 characters. `None` for text that is too short to mean anything or that looks like
+/// something personal (an email address or a phone number), which is never kept.
+pub fn miss_key(query: &str) -> Option<String> {
+    let key: String = query.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase().chars().take(60).collect();
+    let digits = key.chars().filter(char::is_ascii_digit).count();
+    (key.chars().count() >= 2 && !key.contains('@') && digits < 7).then_some(key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,5 +295,16 @@ mod tests {
         assert_eq!(one("മൂക്കന്നൂർ"), ["mookkannoor", "mukanur"]);
         assert_eq!(one("തുറവൂർ"), ["thuravoor", "thuravur", "turavur"]);
         assert!(one("അ").is_empty(), "too short to search for");
+    }
+
+    #[test]
+    fn missed_searches_are_tidied_and_personal_text_is_dropped() {
+        assert_eq!(miss_key("  Aluva   BRIDGE "), Some("aluva bridge".to_string()));
+        assert_eq!(miss_key("ആലുവ പാലം"), Some("ആലുവ പാലം".to_string()));
+        assert_eq!(miss_key("a"), None);
+        assert_eq!(miss_key("someone@example.com"), None);
+        assert_eq!(miss_key("call 9876543210"), None);
+        assert_eq!(miss_key("NH 66 km 120"), Some("nh 66 km 120".to_string()));
+        assert_eq!(miss_key(&"x".repeat(200)).map(|k| k.len()), Some(60));
     }
 }

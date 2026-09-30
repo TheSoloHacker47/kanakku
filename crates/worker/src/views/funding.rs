@@ -10,7 +10,7 @@ use kanakku_core::title::display_title;
 use kanakku_core::Date;
 use maud::{html, Markup};
 
-use super::{big_amount, department_icon, en, icon, layout, meter, pager, pair, Nav, Page};
+use super::{big_amount, dash, department_icon, en, icon, layout, meter, pager, pair, Nav, Page};
 use crate::db::{FundingLink, FundingListing, FundingPage, FundingRow, FundingSort, FundingTotals, FUNDING_PAGE_SIZE};
 use crate::http::encode_segment;
 use crate::icons;
@@ -321,7 +321,7 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
                     @match project.approved {
                         Some(approved) => { p.num { (big_amount(approved, lang)) } p.small { (inr(approved)) } },
                         None => {
-                            p.num { "—" }
+                            p.num { (dash(lang)) }
                             p.small { (lang.pick("ഈ പദ്ധതിക്ക് ഇതുവരെ അനുമതിയായിട്ടില്ല.", "This project has not been approved yet.")) }
                         },
                     }
@@ -339,7 +339,7 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
                             }
                             @if let Some(approved) = project.approved.filter(|a| *a > 0 && paid <= *a) { (meter(paid as f64 / approved as f64, "")) }
                         },
-                        None => { p.num { "—" } p.small { (t.not_reported) } },
+                        None => { p.num aria-hidden="true" { "—" } p.small { (t.not_reported) } },
                     }
                 }
                 div.panel {
@@ -471,7 +471,7 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
                                     span.code { (s.code) }
                                     @if let Some(spent) = s.expenditure { " · " (inr_short(spent, lang)) " " (lang.pick("ചെലവ്", "spent")) }
                                 }
-                                @if s.flag_count > 0 { " " span.badge.flag { (icon(icons::FLAG)) (s.flag_count) } }
+                                @if s.flag_count > 0 { " " span.badge.flag { (icon(icons::FLAG)) (s.flag_count) span.vh { " " (lang.pick("സൂചനകൾ", "flags")) } } }
                             }
                         }
                     }
@@ -550,7 +550,7 @@ fn paid_line(lang: Lang, w: &FundedWork) -> Markup {
             div {
                 @match w.paid {
                     Some(paid) => { b { (inr_short(paid, lang)) } span { (lang.pick("നൽകിയത്", "paid")) } },
-                    None => { b.none { "—" } span { (lang.pick("നൽകിയത്", "paid")) } },
+                    None => { b.none { (dash(lang)) } span { (lang.pick("നൽകിയത്", "paid")) } },
                 }
                 @if let (Some(paid), Some(approved)) = (w.paid, w.approved.filter(|a| *a > 0)) {
                     (meter(paid as f64 / approved as f64, if w.paid_exceeds_approved() { "fl" } else { "" }))
@@ -559,7 +559,7 @@ fn paid_line(lang: Lang, w: &FundedWork) -> Markup {
             div {
                 @match w.approved {
                     Some(approved) => { b { (inr_short(approved, lang)) } span { (lang.pick("അനുവദിച്ചത്", "approved")) } },
-                    None => { b.none { "—" } span { (lang.pick("അനുവദിച്ചത്", "approved")) } },
+                    None => { b.none { (dash(lang)) } span { (lang.pick("അനുവദിച്ചത്", "approved")) } },
                 }
             }
         }
@@ -626,7 +626,7 @@ pub fn project_section(lang: Lang, link: &FundingLink, package_count: u32) -> Ma
             dl.kv {
                 div {
                     dt { (lang.pick("അനുവദിച്ച തുക", "Approved")) }
-                    dd { @match project.approved { Some(a) => { (inr(a)) small { (inr_short(a, lang)) } }, None => span.none { "—" } } }
+                    dd { @match project.approved { Some(a) => { (inr(a)) small { (inr_short(a, lang)) } }, None => span.none { (dash(lang)) } } }
                 }
                 div {
                     dt { (lang.pick("ഇതുവരെ നൽകിയത്", "Paid so far")) }
@@ -641,7 +641,7 @@ pub fn project_section(lang: Lang, link: &FundingLink, package_count: u32) -> Ma
                                     small { (inr_short(paid, lang)) }
                                 }
                             },
-                            None => span.none { "—" },
+                            None => span.none { (dash(lang)) },
                         }
                     }
                 }

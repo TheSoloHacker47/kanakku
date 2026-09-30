@@ -13,7 +13,7 @@ use kanakku_core::{kiifb, Date};
 use maud::{html, Markup};
 use worker::url::form_urlencoded::byte_serialize;
 
-use super::{big_amount, department_icon, dot_map, en, funding, icon, layout, meter, on_dot_map, Nav, Page};
+use super::{big_amount, dash, department_icon, dot_map, en, funding, icon, layout, meter, on_dot_map, Nav, Page};
 use crate::db::ProjectPage;
 use crate::http::encode_segment;
 use crate::icons;
@@ -26,6 +26,13 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
     let path = format!("/p/{}", encode_segment(&project.code));
     let url = format!("{origin}{p}{path}");
     let open_flags: Vec<_> = data.flags.iter().filter(|f| f.status == "open").collect();
+    let mut flag_kinds: Vec<(FlagKind, usize)> = Vec::new();
+    for kind in open_flags.iter().filter_map(|f| FlagKind::parse(&f.kind)) {
+        match flag_kinds.iter_mut().find(|(k, _)| *k == kind) {
+            Some((_, count)) => *count += 1,
+            None => flag_kinds.push((kind, 1)),
+        }
+    }
     let gaps = gaps::find(project);
     let retrieved = Date::from_utc_timestamp_ist(&row.fetched_at).map(Date::to_dmy);
     let first_seen = Date::parse_iso(&row.first_seen_on).map(Date::to_dmy);
@@ -67,10 +74,9 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
                 h1 lang="en" { (title) }
                 @if !open_flags.is_empty() {
                     div.tags {
-                        @for flag in &open_flags {
-                            @if let Some(kind) = FlagKind::parse(&flag.kind) {
-                                a.badge.flag href="#flags" { (icon(icons::FLAG)) (flag_label(lang, kind)) }
-                            }
+                        // One badge per kind of flag, with a count when several works raise the same one.
+                        @for (kind, count) in &flag_kinds {
+                            a.badge.flag href="#flags" { (icon(icons::FLAG)) (flag_label(lang, *kind)) @if *count > 1 { " × " (count) } }
                         }
                     }
                 }
@@ -283,7 +289,7 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
                                         None => (t.not_reported),
                                     }
                                 }
-                                @if s.flag_count > 0 { " " span.badge.flag { (icon(icons::FLAG)) (s.flag_count) } }
+                                @if s.flag_count > 0 { " " span.badge.flag { (icon(icons::FLAG)) (s.flag_count) span.vh { " " (lang.pick("സൂചനകൾ", "flags")) } } }
                             }
                         }
                     }
@@ -363,7 +369,7 @@ fn figure_panel(lang: Lang, project: &Project) -> Markup {
                 },
                 None => {
                     h2 { (t.estimated_amount) }
-                    p.num { "—" }
+                    p.num { (dash(lang)) }
                     p.small { (lang.pick("ഈ പാക്കേജിന് സ്വന്തമായ തുക പ്രസിദ്ധീകരിച്ചിട്ടില്ല.", "No figure is published for this package alone.")) }
                 },
             }
@@ -425,8 +431,8 @@ fn work(lang: Lang, w: &Work, index: usize, today: Date) -> Markup {
             }
             @if w.physical_pct.is_some() || w.financial_pct.is_some() {
                 div.pair {
-                    (progress(t.physical_progress, w.physical_pct, "k"))
-                    (progress(t.financial_progress, w.financial_pct, ""))
+                    (progress(lang, t.physical_progress, w.physical_pct, "k"))
+                    (progress(lang, t.financial_progress, w.financial_pct, ""))
                 }
             }
             (schedule(lang, w, today))
@@ -434,13 +440,14 @@ fn work(lang: Lang, w: &Work, index: usize, today: Date) -> Markup {
                 div {
                     dt { (t.contractor) }
                     dd {
-                        @match w.contractor.as_deref() {
-                            Some(name) => a href=(format!("{}/c/{}", lang.prefix(), contractor_key(name))) lang="en" { (contractor_display(name)) },
-                            None => span.none { "—" },
+                        // A placeholder such as "0" has no key: it is nobody's name.
+                        @match w.contractor.as_deref().map(|name| (name, contractor_key(name))).filter(|(_, key)| !key.is_empty()) {
+                            Some((name, key)) => a href=(format!("{}/c/{key}", lang.prefix())) lang="en" { (contractor_display(name)) },
+                            None => span.none { (dash(lang)) },
                         }
                     }
                 }
-                (text_row(lang.pick("നിർവഹണ സ്ഥാപനം (SPV)", "Implementing agency (SPV)"), w.spv.as_deref(), false))
+                (text_row(lang, lang.pick("നിർവഹണ സ്ഥാപനം (SPV)", "Implementing agency (SPV)"), w.spv.as_deref(), false))
                 (amount_row(lang, t.contract_amount, w.contract_amount, true))
                 (amount_row(lang, t.paid_amount, w.paid_amount, true))
                 (amount_row(lang, t.paid_contractor, w.paid_contractor, false))
@@ -457,12 +464,12 @@ fn work(lang: Lang, w: &Work, index: usize, today: Date) -> Markup {
     }
 }
 
-fn progress(label: &str, value: Option<f64>, class: &str) -> Markup {
+fn progress(lang: Lang, label: &str, value: Option<f64>, class: &str) -> Markup {
     html! {
         div {
             @match value {
                 Some(v) => { b { (pct(v)) } span { (label) } (meter(v / 100.0, class)) },
-                None => { b.none { "—" } span { (label) } },
+                None => { b.none { (dash(lang)) } span { (label) } },
             }
         }
     }
@@ -475,8 +482,8 @@ fn schedule(lang: Lang, w: &Work, today: Date) -> Markup {
         return html! {
             @if w.scheduled_start.is_some() || w.scheduled_end.is_some() {
                 dl.kv {
-                    (text_row(t.scheduled_start, w.scheduled_start.map(Date::to_dmy).as_deref(), true))
-                    (text_row(t.scheduled_end, w.scheduled_end.map(Date::to_dmy).as_deref(), true))
+                    (text_row(lang, t.scheduled_start, w.scheduled_start.map(Date::to_dmy).as_deref(), true))
+                    (text_row(lang, t.scheduled_end, w.scheduled_end.map(Date::to_dmy).as_deref(), true))
                 }
             }
         };
@@ -546,7 +553,7 @@ fn share_of(lang: Lang, spent: i64, estimate: Option<i64>) -> Markup {
 
 /// A label and a text value. Rows marked `always` show a dash when the value is missing;
 /// the others are left out.
-fn text_row(label: &str, value: Option<&str>, always: bool) -> Markup {
+fn text_row(lang: Lang, label: &str, value: Option<&str>, always: bool) -> Markup {
     html! {
         @if value.is_some() || always {
             div {
@@ -554,7 +561,7 @@ fn text_row(label: &str, value: Option<&str>, always: bool) -> Markup {
                 dd {
                     @match value {
                         Some(v) => (en(v)),
-                        None => span.none { "—" },
+                        None => span.none { (dash(lang)) },
                     }
                 }
             }

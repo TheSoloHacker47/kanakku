@@ -270,3 +270,15 @@ Paid is now the sum of the works' paid amounts. The listed figure is kept (`rele
 Checked on every kind of page by script: one `h1`, no skipped heading levels, every link, button and form control named, no duplicate ids, labelled landmarks, language set. Fixed: the focus ring was blue and vanished on the green hero (now ink, blue on black surfaces); sideways-scrolling tables can be reached and scrolled by keyboard and have column headers marked; small link targets raised to 24 px; the map page says its pins need a pointer and that the list has the same projects. Contrast of every text and surface pair in use is 6:1 or better.
 
 Not done: a pass with a real screen reader, and a keyboard-operable map.
+
+## Build 6: polish before publishing
+
+| Item | Where | Notes |
+|---|---|---|
+| Searches that find nothing | `search_misses` table, `search::miss_key`, `runs::count_miss` | Words and a daily count only; robots, filtered searches and text that looks like an email or phone number are skipped. Not shown publicly. |
+| "Saved on" note offline | `assets/sw.js` | Saved pages carry an `X-Saved-At` header; the worker adds a line above `<main>` when it serves one without a connection. |
+| Screen-reader pass | `views::dash`, hidden labels (`.vh`) | A bare dash now reads "not published"; bare counts say what they count; repeated flag badges are merged. |
+| Placeholder contractors | `entity::contractor_key` | A name with no letters ("0") is nobody: no key, no page, no link. |
+| `robots.txt` | `assets/robots.txt` | Everything allowed except `/admin/` and `/snapshot/`. |
+
+Lighthouse (mobile, all page kinds): accessibility 100, best practices 100 (96 on the map until the basemap is uploaded), performance 99 to 100 on the live site. Its robots.txt check fails only because the pages' content security policy stops Lighthouse itself from fetching the file; crawlers fetch it directly.
