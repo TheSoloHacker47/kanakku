@@ -13,9 +13,11 @@ CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8787"
 
 district = (ROOT / "crates/worker/src/district.rs").read_text()
-num = lambda name: float(re.search(rf"{name}: f64 = ([\d.]+);", district).group(1))
-WIDTH, HEIGHT, MIN_LNG, MAX_LAT, PAD, KX, KY = (num(n) for n in ["WIDTH", "HEIGHT", "MIN_LNG", "MAX_LAT", "PAD", "KX", "KY"])
-OUTLINE = re.search(r'OUTLINE: &str = "([^"]+)"', district).group(1)
+# The whole state, in the box district.rs draws it in.
+state = re.search(r"pub const STATE: Frame = Frame \{ width: ([\d.]+), height: ([\d.]+), min_lng: ([\d.]+), max_lat: ([\d.]+), kx: ([\d.]+), ky: ([\d.]+) \}", district)
+WIDTH, HEIGHT, MIN_LNG, MAX_LAT, KX, KY = (float(v) for v in state.groups())
+PAD = float(re.search(r"const PAD: f64 = ([\d.]+);", district).group(1))
+OUTLINES = "".join(f'<path class="land" d="{d}"/>' for d in re.findall(r'in_state: "([^"]+)"', district))
 
 features = json.load(urllib.request.urlopen(f"{BASE}/api/v1/projects.geojson"))["features"]
 dots = []
@@ -24,7 +26,7 @@ for f in sorted(features, key=lambda f: f["properties"]["flagged"]):
     x, y = PAD + (lng - MIN_LNG) * KX, PAD + (MAX_LAT - lat) * KY
     if 0 <= x <= WIDTH and 0 <= y <= HEIGHT:
         flagged = f["properties"]["flagged"]
-        dots.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{4.4 if flagged else 2.1}" class="{"f" if flagged else ""}"/>')
+        dots.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{2.6 if flagged else 1.1}" class="{"f" if flagged else ""}"/>')
 
 MARK = '<path d="M9 8v16M13.7 8v16M18.3 8v16M23 8v16M5.5 20.5l21-9" fill="none" stroke="#0a0a0a" stroke-width="2.3" stroke-linecap="round"/>'
 FONTS = f"""
@@ -47,9 +49,9 @@ circle {{ fill: #0a0a0a; }} .f {{ fill: #ff6a51; stroke: #0a0a0a; stroke-width: 
 <div>
   <div class="brand"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0a0a0a"/>{MARK.replace('#0a0a0a', '#44d991')}</svg>കണക്ക്</div>
   <h1>പൊതുപണം എവിടെ പോകുന്നു?</h1>
-  <p>Where the public money goes. KIIFB projects in Ernakulam, with sources.</p>
+  <p>Where the public money goes. Public projects across Kerala, with their sources.</p>
 </div>
-<svg viewBox="0 0 {WIDTH} {HEIGHT}"><path class="land" d="{OUTLINE}"/>{''.join(dots)}</svg>
+<svg viewBox="0 0 {WIDTH} {HEIGHT}">{OUTLINES}{''.join(dots)}</svg>
 """
 
 def icon(padding):

@@ -225,3 +225,48 @@ A third source: the Kerala PWD defect-liability (DLP) list, `pwd.kerala.gov.in/I
 | No top-level nav item | Five already fill a phone's width; the page is linked from the front page and footer |
 
 **Pages:** `/liability` (filters by wing and contractor, soonest to end first), a block on the front page, `/api/v1/liability` and `/api/v1/liability.csv`.
+
+## Build 5: a correction, the whole state, and the rest of the buildable list (30 Sep 2026)
+
+### A correction to build 3
+
+KIIFB's list states "Payment Released" per project. For every Ernakulam project with works, that figure is an exact whole multiple of what the works add up to: 1 for most, and 2, 3, 4, 6 or 14 for projects filed under several districts. The list counts the same payments once per district. Build 3 showed the listed figure, so the total read ₹9,567 crore where the works add up to ₹5,608 crore.
+
+Paid is now the sum of the works' paid amounts. The listed figure is kept (`released_listed`) and shown next to it on a project's page wherever the two differ, with the multiple. A project whose work table has not been read yet still shows the listed figure, marked provisional. Changes in the listed figure are no longer recorded as changes.
+
+### What was added
+
+| Feature | Where | Notes |
+|---|---|---|
+| Run log, alerts, health | `runs.rs`, `/status`, `/api/v1/status` | Optional `ALERT_WEBHOOK` secret; 503 when a source is stale |
+| Visit counts | `page_views` table | Per kind of page, language and day; robots skipped by User-Agent |
+| Whole state | `PILOT_DISTRICT = "*"` | 3,622 dashboard projects, 1,404 status projects, 2,475 PWD works |
+| District pages | `/d/{district}` | Same template as the front page, narrowed |
+| Contractors | `/contractors`, `/c/{key}` | One key per contractor across the sources (`entity.rs`) |
+| Agencies | `/agencies`, `/a/{key}` | Abbreviations resolved to full names |
+| Rule version 2 | `flags.rs` | Overdue ignores ended works; new "paid above approval" on status-page works |
+| Malayalam search | `search.rs` | Dictionary of places and project words, spelled-out fallback |
+| Share images | `og.rs`, `/og/...png` | Drawn in the Worker with the site's fonts; Latin text only |
+| Offline | `assets/sw.js` | Opened pages are kept; the first script on ordinary pages |
+| Accessibility pass | templates, `app.css` | See below |
+| CI | `.github/workflows/ci.yml` | Tests and a wasm compile check |
+
+### Decisions
+
+| Decision | Why |
+|---|---|
+| A project with no district from KIIFB is "district not stated" | 393 pins carry no district. Guessing from coordinates against simplified borders would misplace border cases |
+| The state's front page has district tiles, not 140 constituency tiles | Constituencies appear once a district is chosen |
+| Thousands of map dots are two SVG paths of zero-length strokes | One element per dot made the front page three times larger |
+| The status page is read district by district (14 requests) | It is the only way to learn which districts a project is filed under |
+| Work tables are read 150 a night | A first statewide load is about 1,400 requests; spreading it over ten nights is kinder to KIIFB than one burst |
+| A PWD work's district is its office's district | PWD states no location; a division can cover neighbouring districts, and the page says so |
+| Ordinary pages now load one script | Offline support needs a service worker, and that needs registering |
+| Share images carry English text only | Malayalam needs a text shaper the Worker does not have; KIIFB's titles are English |
+| Dashboard contractor names are re-spaced only where capitals show the joins | KIIFB runs names together; an all-capital name has no joins to find |
+
+### Accessibility pass
+
+Checked on every kind of page by script: one `h1`, no skipped heading levels, every link, button and form control named, no duplicate ids, labelled landmarks, language set. Fixed: the focus ring was blue and vanished on the green hero (now ink, blue on black surfaces); sideways-scrolling tables can be reached and scrolled by keyboard and have column headers marked; small link targets raised to 24 px; the map page says its pins need a pointer and that the list has the same projects. Contrast of every text and surface pair in use is 6:1 or better.
+
+Not done: a pass with a real screen reader, and a keyboard-operable map.

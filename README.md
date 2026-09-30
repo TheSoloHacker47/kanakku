@@ -1,6 +1,6 @@
 # Kanakku (കണക്ക്)
 
-Public project accountability for Kerala. This first build covers KIIFB projects in Ernakulam district: what was sanctioned, who got the contract, what has been paid, how far the work has come, and a copy of the source page behind every figure.
+Public project accountability for Kerala: what was sanctioned, who got the contract, what has been paid, how far the work has come. It covers KIIFB projects in all 14 districts from two KIIFB sources, and the Public Works Department's list of finished works still under contractor liability. Every number links to a stored copy of its source.
 
 The product spec is in [kanakku-spec.md](kanakku-spec.md). The design of this build is in [docs/design.md](docs/design.md).
 
@@ -45,7 +45,10 @@ These are committed, so you only need the scripts when something changes.
 | `scripts/district.py` | `crates/worker/src/district.rs`, the district outline from OpenStreetMap | network |
 | `scripts/brand.py` | share image and app icons in `assets/` | Google Chrome, running dev server |
 | `scripts/vendor.sh` | map libraries in `assets/vendor/` | `npm install` |
-| `scripts/basemap.sh` | `tiles/ernakulam.pmtiles` | `brew install pmtiles` |
+| `scripts/basemap.sh` | `tiles/kerala.pmtiles` | `brew install pmtiles` |
+| `scripts/districts.py` | `crates/worker/src/district.rs` (district outlines) | Python 3 |
+| `scripts/constituencies.py` | `crates/core/src/constituencies.rs` | Python 3, a saved dashboard page |
+| `scripts/ogfonts.py` | `crates/worker/fonts/*.ttf` (share-image fonts) | `pip install fonttools brotli` |
 
 `scripts/shot.sh URL out.png WIDTH HEIGHT` takes a screenshot with headless Chrome. It cannot go narrower than about 500 px.
 
@@ -58,7 +61,7 @@ cargo test -p kanakku-core
 To see what an ingest would store from a saved copy of the dashboard:
 
 ```bash
-cargo run -p kanakku-core --release --example inspect -- page.html Ernakulam 2026-09-30
+cargo run -p kanakku-core --release --example inspect -- page.html '*' 2026-09-30
 ```
 
 ## Ingest
@@ -83,3 +86,23 @@ If KIIFB blocks Cloudflare's addresses, fetch the page from a machine in India a
 curl -A "KanakkuBot/0.1" https://gis.kiifb.org/ -o page.html
 curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" --data-binary @page.html https://<your-domain>/admin/ingest
 ```
+
+## Scope, alerts and health
+
+- `PILOT_DISTRICT` in `wrangler.toml` is `*` for the whole state, or one district's name.
+- Every ingest run is logged. `/status` shows the last good read of each source; `/api/v1/status` answers 503 when a source is stale, so any uptime monitor can watch it.
+- To be told when a run fails, set a webhook (Slack, Discord or similar): `npx wrangler secret put ALERT_WEBHOOK`.
+- Visit counts are per kind of page, language and day. No cookies, addresses or identifiers.
+
+## Pages
+
+| Path | What |
+|---|---|
+| `/`, `/d/{district}` | Front page for the state and for a district |
+| `/projects`, `/p/{code}` | Dashboard projects; search works in Malayalam |
+| `/funding`, `/f/{ref}` | What KIIFB approved and what has been paid |
+| `/liability` | Finished PWD works still under contractor liability |
+| `/contractors`, `/c/{key}` | Contractors across the sources |
+| `/agencies`, `/a/{key}` | Implementing agencies |
+| `/og/p/{code}.png`, `/og/f/{ref}.png` | Share images, drawn on request |
+| `/status`, `/methodology`, `/data`, `/map` | Health, method, downloads, map |

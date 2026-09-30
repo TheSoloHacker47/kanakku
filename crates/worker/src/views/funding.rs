@@ -481,9 +481,9 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
             @if !data.observations.is_empty() {
                 section.sec {
                     h2.h { (t.changes) }
-                    div.scroll {
+                    div.scroll tabindex="0" role="region" aria-label=(lang.pick("പട്ടിക: വശങ്ങളിലേക്ക് നീക്കാം", "Table, scrolls sideways")) {
                         table {
-                            thead { tr { th { (t.retrieved) } th { (lang.pick("വിവരം", "Field")) } th { (lang.pick("മുൻപ് → ഇപ്പോൾ", "Before → after")) } } }
+                            thead { tr { th scope="col" { (t.retrieved) } th scope="col" { (lang.pick("വിവരം", "Field")) } th scope="col" { (lang.pick("മുൻപ് → ഇപ്പോൾ", "Before → after")) } } }
                             tbody {
                                 @for o in &data.observations {
                                     tr {

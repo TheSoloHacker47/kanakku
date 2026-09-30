@@ -1,0 +1,23 @@
+# Runs the tests and checks the Worker still compiles, on every push and pull request.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Core tests
+        run: cargo test -p kanakku-core
+      - name: Worker compiles for Workers
+        run: cargo check -p kanakku-worker --target wasm32-unknown-unknown

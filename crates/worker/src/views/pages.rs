@@ -58,7 +58,12 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                 div.rules {
                     @for kind in FlagKind::ALL {
                         div {
-                            a.badge.flag href=(format!("{}/projects?flag={}", lang.prefix(), kind.as_str())) { (icon(icons::FLAG)) (flag_label(lang, kind)) }
+                            @let href = if kind == FlagKind::PaidAboveApproval {
+                                format!("{}/funding?flag=1", lang.prefix())
+                            } else {
+                                format!("{}/projects?flag={}", lang.prefix(), kind.as_str())
+                            };
+                            a.badge.flag href=(href) { (icon(icons::FLAG)) (flag_label(lang, kind)) }
                             p { (flag_rule(lang, kind)) }
                         }
                     }
@@ -69,9 +74,9 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                     "കിഫ്ബിയുടെ സ്ഥിതിവിവരങ്ങൾ (“WBS Base One Approved” പോലുള്ളവ) അവരുടെ ആഭ്യന്തര പ്രവർത്തനക്രമത്തിലെ പദങ്ങളാണ്. വായിക്കാൻ എളുപ്പത്തിന് ഞങ്ങൾ അവയെ താഴെയുള്ള ഘട്ടങ്ങളാക്കി തിരിക്കുന്നു. ഈ തരംതിരിവ് ഞങ്ങളുടേതാണ്; കിഫ്ബിയുടെ യഥാർത്ഥ പദം ഓരോ പദ്ധതിയുടെയും താളിൽ കാണിക്കുന്നു.",
                     "KIIFB's status labels, such as “WBS Base One Approved”, are terms from its internal workflow. To make them readable we group them into the stages below. The grouping is ours; each project page also shows KIIFB's original label.",
                 )) }
-                div.scroll {
+                div.scroll tabindex="0" role="region" aria-label=(lang.pick("പട്ടിക: വശങ്ങളിലേക്ക് നീക്കാം", "Table, scrolls sideways")) {
                     table {
-                        thead { tr { th { (lang.pick("ഘട്ടം", "Stage")) } th { (lang.pick("കിഫ്ബിയുടെ പദങ്ങൾ", "KIIFB labels containing")) } } }
+                        thead { tr { th scope="col" { (lang.pick("ഘട്ടം", "Stage")) } th scope="col" { (lang.pick("കിഫ്ബിയുടെ പദങ്ങൾ", "KIIFB labels containing")) } } }
                         tbody {
                             @for stage in Stage::ALL {
                                 tr {
@@ -230,6 +235,10 @@ pub fn map(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
                 span { i.dot {} (t.map_legend_clear) }
                 a.more href=(format!("{}/projects", lang.prefix())) { (lang.pick("പട്ടികയായി കാണുക", "See as a list")) (icon(icons::ARROW_RIGHT)) }
             }
+            p.small.muted { (lang.pick(
+                "ഭൂപടത്തിലെ കുത്തുകൾ തുറക്കാൻ മൗസോ സ്പർശമോ വേണം. കീബോർഡോ സ്ക്രീൻ റീഡറോ ഉപയോഗിക്കുന്നവർക്ക് ഇതേ പദ്ധതികളെല്ലാം പട്ടികയിൽ ലഭ്യമാണ്.",
+                "Opening a pin on the map needs a mouse or touch. If you use a keyboard or a screen reader, every project shown here is also in the list.",
+            )) }
         }
     };
     let mut p = page(lang, t.map_title, t.map_intro, "/map", origin, Nav::Map, last_checked);
@@ -256,12 +265,12 @@ pub fn status(lang: Lang, origin: &str, status: &Status, now_ms: i64) -> String 
         div.wrap {
             section.sec {
                 h2.h { (lang.pick("ഉറവിടങ്ങൾ", "Sources")) }
-                div.scroll {
+                div.scroll tabindex="0" role="region" aria-label=(lang.pick("പട്ടിക: വശങ്ങളിലേക്ക് നീക്കാം", "Table, scrolls sideways")) {
                     table {
                         thead { tr {
-                            th { (lang.pick("ഉറവിടം", "Source")) }
-                            th { (lang.pick("അവസാനം വിജയകരമായി വായിച്ചത്", "Last good read")) }
-                            th { (lang.pick("നില", "State")) }
+                            th scope="col" { (lang.pick("ഉറവിടം", "Source")) }
+                            th scope="col" { (lang.pick("അവസാനം വിജയകരമായി വായിച്ചത്", "Last good read")) }
+                            th scope="col" { (lang.pick("നില", "State")) }
                         } }
                         tbody {
                             @for source in &status.sources {
@@ -300,12 +309,12 @@ pub fn status(lang: Lang, origin: &str, status: &Status, now_ms: i64) -> String 
             @if !status.runs.is_empty() {
                 section.sec {
                     h2.h { (lang.pick("സമീപകാല ശേഖരണങ്ങൾ", "Recent runs")) }
-                    div.scroll {
+                    div.scroll tabindex="0" role="region" aria-label=(lang.pick("പട്ടിക: വശങ്ങളിലേക്ക് നീക്കാം", "Table, scrolls sideways")) {
                         table {
                             thead { tr {
-                                th { (lang.pick("തീയതി", "Date")) }
-                                th { (lang.pick("ഉറവിടം", "Source")) }
-                                th { (lang.pick("ഫലം", "Result")) }
+                                th scope="col" { (lang.pick("തീയതി", "Date")) }
+                                th scope="col" { (lang.pick("ഉറവിടം", "Source")) }
+                                th scope="col" { (lang.pick("ഫലം", "Result")) }
                             } }
                             tbody {
                                 @for run in &status.runs {
@@ -333,12 +342,12 @@ pub fn status(lang: Lang, origin: &str, status: &Status, now_ms: i64) -> String 
                 @if status.views.is_empty() {
                     p.muted { (lang.pick("ഇതുവരെ കണക്കില്ല.", "Nothing counted yet.")) }
                 } @else {
-                    div.scroll {
+                    div.scroll tabindex="0" role="region" aria-label=(lang.pick("പട്ടിക: വശങ്ങളിലേക്ക് നീക്കാം", "Table, scrolls sideways")) {
                         table {
                             thead { tr {
-                                th { (lang.pick("താൾ", "Page")) }
-                                th { (lang.pick("കഴിഞ്ഞ 7 ദിവസം", "Last 7 days")) }
-                                th { (lang.pick("കഴിഞ്ഞ 30 ദിവസം", "Last 30 days")) }
+                                th scope="col" { (lang.pick("താൾ", "Page")) }
+                                th scope="col" { (lang.pick("കഴിഞ്ഞ 7 ദിവസം", "Last 7 days")) }
+                                th scope="col" { (lang.pick("കഴിഞ്ഞ 30 ദിവസം", "Last 30 days")) }
                             } }
                             tbody {
                                 @for view in &status.views {
