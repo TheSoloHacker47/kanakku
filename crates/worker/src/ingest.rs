@@ -78,6 +78,24 @@ pub async fn run(env: &Env, pushed: Option<Vec<u8>>) -> Result<Report> {
         return Err(Error::RustError("no projects for the configured district in the KIIFB page; refusing to ingest".into()));
     }
 
+    // A page that lost a third of its projects overnight is broken, not news.
+    #[derive(Deserialize)]
+    struct Stored {
+        n: usize,
+    }
+    let stored = db
+        .prepare("SELECT COUNT(*) AS n FROM projects WHERE missing_since IS NULL")
+        .first::<Stored>(None)
+        .await?
+        .map(|row| row.n)
+        .unwrap_or(0);
+    if parsed.projects.len() * 10 < stored * 7 {
+        return Err(Error::RustError(format!(
+            "the KIIFB page lists {} projects where {stored} were stored; refusing to ingest a drop of more than 30%",
+            parsed.projects.len()
+        )));
+    }
+
     let mut hasher = Sha256::new();
     for range in parsed.segments.clone() {
         hasher.update(&page[range]);

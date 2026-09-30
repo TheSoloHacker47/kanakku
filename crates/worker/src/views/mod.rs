@@ -60,6 +60,9 @@ pub fn layout(page: &Page, body: Markup) -> String {
         html! { a href=(href(path)) aria-current=[(page.nav == nav).then_some("page")] { (label) } }
     };
     let checked = page.last_checked.and_then(Date::from_utc_timestamp_ist).map(Date::to_dmy);
+    // Days since the source was last read. Past two, the page says so at the top.
+    let today = Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64);
+    let stale_days = page.last_checked.and_then(Date::from_utc_timestamp_ist).map(|last| today.days_since(last)).filter(|days| *days >= 2);
     let title = if page.nav == Nav::Home { format!("{} · {}", t.site_name, t.tagline) } else { format!("{} · {}", page.title, t.site_name) };
     let url = format!("{}{}{}", page.origin, lang.prefix(), page.path);
 
@@ -104,6 +107,14 @@ pub fn layout(page: &Page, body: Markup) -> String {
                         }
                         a.btn.ghost.lang href=(format!("{}{}", other.prefix(), page.path)) lang=(other.code()) hreflang=(other.code()) {
                             (icon(icons::LANGUAGES)) (other.t().lang_name)
+                        }
+                    }
+                }
+                @if let Some(days) = stale_days {
+                    p.stale role="status" {
+                        @match lang {
+                            Lang::Ml => { "ശ്രദ്ധിക്കുക: ഈ വിവരങ്ങൾ ഉറവിടവുമായി അവസാനം ഒത്തുനോക്കിയത് " (days) " ദിവസം മുമ്പാണ്. " a href=(href("/status")) { "പ്രവർത്തന നില" } },
+                            Lang::En => { "Note: these figures were last checked against the source " (days) " days ago. " a href=(href("/status")) { "Status" } },
                         }
                     }
                 }

@@ -1,5 +1,6 @@
 // Keeps pages you have opened readable without a connection.
-// Pages: the network first, the saved copy when it fails. Fonts and icons: the saved copy first.
+// Pages: the network first, the saved copy when it fails. Fonts, icons and scripts: the saved
+// copy first, refreshed in the background.
 var PAGES = "pages-v1";
 var STATIC = "static-v1";
 var KEEP = 80; // saved pages; the oldest are dropped beyond this
@@ -47,15 +48,18 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
+  // Fonts, icons and scripts: the saved copy at once, refreshed in the background for next time.
   if (/^\/(fonts|vendor)\//.test(url.pathname) || /\.(png|svg|webmanifest|js)$/.test(url.pathname)) {
     event.respondWith(
-      caches.match(request).then(function (saved) {
-        return saved || fetch(request).then(function (response) {
-          if (response.ok) {
-            var copy = response.clone();
-            caches.open(STATIC).then(function (cache) { cache.put(request, copy); });
-          }
-          return response;
+      caches.open(STATIC).then(function (cache) {
+        return cache.match(request).then(function (saved) {
+          var fresh = fetch(request).then(function (response) {
+            if (response.ok) cache.put(request, response.clone());
+            return response;
+          });
+          if (!saved) return fresh;
+          fresh.catch(function () {});
+          return saved;
         });
       })
     );

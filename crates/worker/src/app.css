@@ -120,6 +120,7 @@ a.stat:hover p { text-decoration: underline; }
 @media (min-width: 58rem) { .stats { grid-template-columns: repeat(4, 1fr); } }
 
 /* Sections */
+.stale { background: var(--flag-soft); padding: 10px 16px; text-align: center; font-size: 0.9375rem; }
 main { padding-bottom: 80px; }
 .sec { margin-top: clamp(56px, 8vw, 96px); }
 .sec-h { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; margin-bottom: 20px; }
