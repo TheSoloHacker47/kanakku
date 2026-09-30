@@ -14,6 +14,8 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::changes::Change;
+use crate::entity::agency_key;
+use crate::flags::{Flag, FlagKind, OVERPAID_PERCENT};
 
 pub const SOURCE_URL: &str = "https://www.kiifb.org/prjStatus.jsp";
 
@@ -140,8 +142,26 @@ impl FundedWork {
     /// More has been paid than was approved for this work, by over 1%.
     /// Smaller differences are paise and rounding, and say nothing.
     pub fn paid_exceeds_approved(&self) -> bool {
-        matches!((self.approved, self.paid), (Some(approved), Some(paid)) if approved > 0 && (paid - approved) * 100 > approved)
+        matches!((self.approved, self.paid), (Some(approved), Some(paid)) if approved > 0 && (paid - approved) * 100 > approved * OVERPAID_PERCENT)
     }
+}
+
+/// The flags a project's works raise: one for each work paid more than 1% above its approval.
+pub fn flags(project: &FundedProject) -> Vec<Flag> {
+    project
+        .works
+        .iter()
+        .zip(project.work_references())
+        .filter(|(work, _)| work.paid_exceeds_approved())
+        .map(|(work, reference)| {
+            let (approved, paid) = (work.approved.unwrap_or(0), work.paid.unwrap_or(0));
+            Flag {
+                kind: FlagKind::PaidAboveApproval,
+                work_ref: Some(reference),
+                value: serde_json::json!({ "approved": approved, "paid": paid, "excess": paid - approved }),
+            }
+        })
+        .collect()
 }
 
 /// The work table of one project, from the page returned when that project is selected.
@@ -156,6 +176,11 @@ pub struct Detail<'a> {
 /// KIIFB's number for a district in the form's drop-down.
 pub fn district_id(name: &str) -> Option<u8> {
     DISTRICTS.iter().position(|d| d.eq_ignore_ascii_case(name.trim())).map(|i| i as u8 + 1)
+}
+
+/// Every district with its number on the form.
+pub fn districts() -> impl Iterator<Item = (u8, &'static str)> {
+    DISTRICTS.iter().enumerate().map(|(i, name)| (i as u8 + 1, *name))
 }
 
 /// The form body for a district, optionally with one project selected.
@@ -248,7 +273,8 @@ pub fn diff(old: &FundedProject, new: &FundedProject) -> Vec<Change> {
     push("spv".into(), old.spv.clone(), new.spv.clone());
     push("status".into(), old.status.clone(), new.status.clone());
     push("approved_amount".into(), text(old.approved), text(new.approved));
-    push("released_amount".into(), text(old.released), text(new.released));
+    // Not the listed "released" figure: it depends on which district's list the row was read from.
+    push("paid_amount".into(), text(old.paid()), text(new.paid()));
 
     let (old_refs, new_refs) = (old.work_references(), new.work_references());
     for (i, name) in new_refs.iter().enumerate() {
@@ -305,26 +331,47 @@ impl Basis {
 /// the group key and what the join rests on. A project that could belong to more than one
 /// group is left unjoined rather than guessed.
 pub fn link(funded: &[FundedProject], groups: &[MapGroup]) -> HashMap<String, (String, Basis)> {
-    let same_figures = |f: &FundedProject, g: &MapGroup| {
-        f.approved == Some(g.estimate) && g.estimate > 0 && same_name(f.department.as_deref(), g.department.as_deref())
+    // Everything is compared through keys worked out once: the state has thousands of each.
+    struct Keyed<'a> {
+        group: &'a MapGroup,
+        department: String,
+        agency: String,
+    }
+    let mut by_estimate: HashMap<i64, Vec<Keyed>> = HashMap::new();
+    for group in groups.iter().filter(|g| g.estimate > 0) {
+        by_estimate.entry(group.estimate).or_default().push(Keyed {
+            group,
+            department: group.department.as_deref().map(squash).unwrap_or_default(),
+            agency: group.agency.as_deref().map(agency_key).unwrap_or_default(),
+        });
+    }
+    let keys = |f: &FundedProject| {
+        (f.approved.unwrap_or(0), f.department.as_deref().map(squash).unwrap_or_default(), f.spv.as_deref().map(agency_key).unwrap_or_default())
     };
-    let mut out = HashMap::new();
-
+    let mut same_figures: HashMap<(i64, String, String), u32> = HashMap::new();
     for f in funded {
-        let candidates: Vec<&MapGroup> = groups.iter().filter(|g| same_figures(f, g)).collect();
-        let strict: Vec<&MapGroup> =
-            candidates.iter().copied().filter(|g| same_name(f.spv.as_deref(), g.agency.as_deref())).collect();
-        if let [group] = strict.as_slice() {
+        *same_figures.entry(keys(f)).or_default() += 1;
+    }
+
+    let mut out = HashMap::new();
+    for f in funded {
+        let (approved, department, agency) = keys(f);
+        if approved <= 0 || department.is_empty() {
+            continue;
+        }
+        let candidates: Vec<&Keyed> =
+            by_estimate.get(&approved).map(|list| list.iter().filter(|k| k.department == department).collect()).unwrap_or_default();
+        let strict: Vec<&&Keyed> = candidates.iter().filter(|k| !agency.is_empty() && k.agency == agency).collect();
+        if let [only] = strict.as_slice() {
             // The group must not fit another status project equally well.
-            let rivals = funded.iter().filter(|o| same_figures(o, group) && same_name(o.spv.as_deref(), group.agency.as_deref())).count();
-            if rivals == 1 {
-                out.insert(f.reference.clone(), (group.key.clone(), Basis::Figures));
+            if same_figures.get(&(approved, department.clone(), agency.clone())) == Some(&1) {
+                out.insert(f.reference.clone(), (only.group.key.clone(), Basis::Figures));
                 continue;
             }
         }
         let mut scored: Vec<(f64, &MapGroup)> = candidates
             .iter()
-            .map(|g| (g.packages.iter().map(|(_, title)| overlap(&f.name, title)).fold(0.0, f64::max), *g))
+            .map(|k| (k.group.packages.iter().map(|(_, title)| overlap(&f.name, title)).fold(0.0, f64::max), k.group))
             .collect();
         scored.sort_by(|a, b| b.0.total_cmp(&a.0));
         match scored.as_slice() {
@@ -355,16 +402,6 @@ pub fn link_works(project: &FundedProject, group: &MapGroup) -> Vec<Option<Strin
 /// Letters and digits only, lower case: "Health & Family Welfare" and "HEALTH AND FAMILY WELFARE" compare equal.
 fn squash(s: &str) -> String {
     s.replace('&', " and ").chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_lowercase()).collect()
-}
-
-fn same_name(a: Option<&str>, b: Option<&str>) -> bool {
-    match (a, b) {
-        (Some(a), Some(b)) => {
-            let (a, b) = (squash(a), squash(b));
-            !a.is_empty() && a == b
-        }
-        _ => false,
-    }
 }
 
 /// Share of the shorter name's distinctive words that the other name also has.
@@ -628,13 +665,14 @@ mod tests {
 
         let mut new = old.clone();
         new.released = Some(55);
+        assert!(diff(&old, &new).is_empty(), "the listed figure alone is not a change");
         new.works[1].paid = Some(20);
         new.works.push(FundedWork { name: "Utility shifting".into(), ..FundedWork::default() });
         let changes: Vec<_> = diff(&old, &new).into_iter().map(|c| (c.field, c.old, c.new)).collect();
         assert_eq!(
             changes,
             [
-                ("released_amount".to_string(), Some("40".to_string()), Some("55".to_string())),
+                ("paid_amount".to_string(), Some("15".to_string()), Some("30".to_string())),
                 ("work[Package #2].paid_amount".to_string(), Some("5".to_string()), Some("20".to_string())),
                 ("work[Utility shifting]".to_string(), None, Some("listed".to_string())),
             ]
@@ -666,7 +704,7 @@ mod tests {
 
     #[test]
     fn flags_a_work_paid_beyond_its_approval() {
-        let over = FundedWork { approved: Some(1_000), paid: Some(1_011), ..FundedWork::default() };
+        let over = FundedWork { name: "Over".into(), approved: Some(1_000), paid: Some(1_011), ..FundedWork::default() };
         let within = FundedWork { approved: Some(1_000), paid: Some(1_000), ..FundedWork::default() };
         // One rupee over ₹87 lakh is rounding, not a finding.
         let rounding = FundedWork { approved: Some(8_738_240), paid: Some(8_738_241), ..FundedWork::default() };
@@ -677,5 +715,11 @@ mod tests {
         assert!(over.paid_exceeds_approved());
         assert!(!within.paid_exceeds_approved());
         assert!(!unapproved.paid_exceeds_approved());
+
+        let project = FundedProject { works: vec![within, over.clone(), rounding], ..FundedProject::default() };
+        let raised = flags(&project);
+        assert_eq!(raised.len(), 1);
+        assert_eq!(raised[0].kind, FlagKind::PaidAboveApproval);
+        assert_eq!(raised[0].value["excess"], 11);
     }
 }

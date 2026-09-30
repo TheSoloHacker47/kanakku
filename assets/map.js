@@ -5,18 +5,19 @@
   var prefix = el.dataset.prefix;
   el.textContent = "";
 
-  var map = L.map(el, { minZoom: 8, maxZoom: 16, maxBounds: [[8, 74.5], [13, 78]] }).setView([10.02, 76.5], 10);
+  // Thousands of pins are drawn on one canvas rather than as thousands of elements.
+  var map = L.map(el, { minZoom: 7, maxZoom: 16, maxBounds: [[7.5, 73.5], [13.5, 78.5]], preferCanvas: true }).setView([10.4, 76.4], 7);
   map.attributionControl.setPrefix(false);
 
   // Without the basemap file the pins still show, on a plain ground.
-  fetch("/tiles/ernakulam.pmtiles", { method: "HEAD" }).then(function (r) {
+  fetch("/tiles/kerala.pmtiles", { method: "HEAD" }).then(function (r) {
     if (!r.ok) return;
     protomapsL
       .leafletLayer({
-        url: "/tiles/ernakulam.pmtiles",
+        url: "/tiles/kerala.pmtiles",
         flavor: "light",
         lang: el.dataset.lang,
-        maxDataZoom: 13,
+        maxDataZoom: 12,
         attribution: "© OpenStreetMap · Protomaps",
       })
       .addTo(map);
@@ -52,7 +53,7 @@
         .forEach(function (f) {
           var c = f.geometry.coordinates;
           var marker = L.circleMarker([c[1], c[0]], {
-            radius: f.properties.flagged ? 8 : 6,
+            radius: f.properties.flagged ? 7 : 4.5,
             weight: 1.5,
             color: f.properties.flagged ? "#0a0a0a" : "#fff",
             fillColor: f.properties.flagged ? "#ff6a51" : "#0a0a0a",

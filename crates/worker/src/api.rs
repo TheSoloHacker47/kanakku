@@ -248,6 +248,7 @@ pub fn liability_json(rows: &[LiabilityExportRow]) -> String {
         .iter()
         .map(|w| {
             json!({
+                "office_district": w.district,
                 "wing": w.wing,
                 "work": w.name,
                 "contractor": w.contractor,
@@ -265,10 +266,11 @@ pub fn liability_json(rows: &[LiabilityExportRow]) -> String {
 }
 
 pub fn liability_csv(rows: &[LiabilityExportRow]) -> String {
-    let mut out = String::from("wing,work,contractor,agreed_amount,liability_starts,liability_ends,division,subdivision,first_seen_on,missing_since\r\n");
+    let mut out = String::from("office_district,wing,work,contractor,agreed_amount,liability_starts,liability_ends,division,subdivision,first_seen_on,missing_since\r\n");
     for w in rows {
         let amount = w.agreed_amount.map(|a| a.to_string()).unwrap_or_default();
         let cells = [
+            w.district.as_deref().unwrap_or(""),
             w.wing.as_str(),
             w.name.as_str(),
             w.contractor.as_deref().unwrap_or(""),

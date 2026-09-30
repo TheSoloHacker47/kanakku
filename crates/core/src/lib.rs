@@ -2,7 +2,9 @@
 //! No wasm or Cloudflare dependencies, so everything here is tested natively.
 
 pub mod changes;
+pub mod constituencies;
 pub mod date;
+pub mod entity;
 pub mod flags;
 pub mod fmt;
 pub mod gaps;

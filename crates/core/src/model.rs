@@ -10,7 +10,11 @@ pub struct Project {
     pub department: Option<String>,
     pub sector: Option<String>,
     pub executing_agency: Option<String>,
+    /// The first district KIIFB files the project under; empty when it states none.
     pub district: String,
+    /// Every district it is filed under. A few projects have pins in more than one.
+    #[serde(default)]
+    pub districts: Vec<String>,
     /// KIIFB lists some projects under more than one assembly constituency.
     pub constituencies: Vec<Constituency>,
     /// KIIFB states the estimate for the parent sub-project, so sibling packages repeat it.
@@ -135,6 +139,13 @@ impl Work {
 
     pub fn is_completed(&self) -> bool {
         self.status.as_deref().is_some_and(|s| s.eq_ignore_ascii_case("completed"))
+    }
+
+    /// The contract has ended, whether by completion or otherwise, so its schedule no longer runs.
+    pub fn is_closed(&self) -> bool {
+        self.status.as_deref().is_some_and(|s| {
+            ["completed", "foreclosed", "terminated", "package disposed"].iter().any(|closed| s.eq_ignore_ascii_case(closed))
+        })
     }
 
     pub fn is_in_progress(&self) -> bool {

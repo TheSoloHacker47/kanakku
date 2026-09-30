@@ -142,7 +142,7 @@ pub static ML: Strings = Strings {
     nav_data: "ഡാറ്റ",
     skip_to_content: "ഉള്ളടക്കത്തിലേക്ക്",
 
-    list_title: "എറണാകുളം ജില്ലയിലെ കിഫ്ബി പദ്ധതികൾ",
+    list_title: "കേരളത്തിലെ കിഫ്ബി പദ്ധതികൾ",
     list_intro: "അനുവദിച്ച തുക, കരാറുകാരൻ, നൽകിയ തുക, പുരോഗതി. ഓരോ സംഖ്യയും അതിന്റെ ഉറവിടത്തോടൊപ്പം.",
     search_label: "തിരയുക",
     search_placeholder: "പദ്ധതി, കോഡ്, കരാറുകാരൻ (ഇംഗ്ലീഷിൽ)",
@@ -231,7 +231,7 @@ pub static EN: Strings = Strings {
     nav_data: "Data",
     skip_to_content: "Skip to content",
 
-    list_title: "KIIFB projects in Ernakulam district",
+    list_title: "KIIFB projects in Kerala",
     list_intro: "What was sanctioned, who got the contract, what has been paid, and how far the work has come. Every number links to its source.",
     search_label: "Search",
     search_placeholder: "Project, code or contractor",
@@ -316,6 +316,7 @@ pub fn flag_label(lang: Lang, kind: FlagKind) -> &'static str {
         FlagKind::PaymentVsProgress => lang.pick("പണവും പുരോഗതിയും തമ്മിൽ വ്യത്യാസം", "Payment ahead of progress"),
         FlagKind::CostEscalation => lang.pick("ചെലവ് വർധന", "Cost escalation"),
         FlagKind::Stale => lang.pick("പുതിയ വിവരമില്ല", "No recent update"),
+        FlagKind::PaidAboveApproval => lang.pick("അനുവദിച്ചതിലും കൂടുതൽ നൽകി", "Paid above approval"),
     }
 }
 
@@ -323,8 +324,8 @@ pub fn flag_label(lang: Lang, kind: FlagKind) -> &'static str {
 pub fn flag_rule(lang: Lang, kind: FlagKind) -> &'static str {
     match kind {
         FlagKind::Overdue => lang.pick(
-            "നിശ്ചയിച്ച പൂർത്തീകരണ തീയതി കഴിഞ്ഞിട്ടും ഔദ്യോഗിക നില “Completed” അല്ലെങ്കിൽ.",
-            "Today is past the scheduled completion date and the official status is not “Completed”.",
+            "നിശ്ചയിച്ച പൂർത്തീകരണ തീയതി കഴിഞ്ഞിട്ടും പ്രവൃത്തി അവസാനിച്ചതായി (Completed, Foreclosed, Terminated, Package Disposed) കിഫ്ബി രേഖപ്പെടുത്തിയിട്ടില്ലെങ്കിൽ.",
+            "Today is past the scheduled completion date and KIIFB does not list the work as ended (Completed, Foreclosed, Terminated or Package Disposed).",
         ),
         FlagKind::PaymentVsProgress => lang.pick(
             "രേഖപ്പെടുത്തിയ സാമ്പത്തിക പുരോഗതി, ഭൗതിക പുരോഗതിയെക്കാൾ 25 ശതമാന പോയിന്റോ അതിലധികമോ കൂടുതലാണെങ്കിൽ.",
@@ -337,6 +338,10 @@ pub fn flag_rule(lang: Lang, kind: FlagKind) -> &'static str {
         FlagKind::Stale => lang.pick(
             "പ്രവൃത്തി “Inprogress” ആയിരിക്കെ 90 ദിവസമോ അതിലധികമോ ഡാഷ്ബോർഡിലെ ഒരു വിവരവും മാറിയിട്ടില്ലെങ്കിൽ.",
             "A work is listed as “Inprogress” and no reported figure has changed on the dashboard for 90 days or more.",
+        ),
+        FlagKind::PaidAboveApproval => lang.pick(
+            "കിഫ്ബിയുടെ പ്രോജക്ട് സ്റ്റാറ്റസ് താളിൽ, ഒരു പ്രവൃത്തിക്ക് നൽകിയ തുക അതിന് അനുവദിച്ച തുകയെക്കാൾ 1 ശതമാനത്തിലധികം കൂടുതലാണെങ്കിൽ.",
+            "On KIIFB's project status page, the amount paid for a work is more than 1% above the amount approved for it.",
         ),
     }
 }
@@ -406,6 +411,23 @@ pub fn flag_explain(lang: Lang, kind: FlagKind, v: &Value) -> String {
                 num("days"),
             ),
         },
+        FlagKind::PaidAboveApproval => {
+            let amount = |key: &str| v[key].as_i64().map(crate::fmt::inr).unwrap_or_else(|| "?".into());
+            match lang {
+                Lang::Ml => format!(
+                    "ഈ പ്രവൃത്തിക്ക് അനുവദിച്ചത് {}; നൽകിയതായി കിഫ്ബി രേഖപ്പെടുത്തുന്നത് {}. വ്യത്യാസം {}. കാരണം ഉറവിടത്തിൽ പറയുന്നില്ല; പുതുക്കിയ അനുമതി താളിൽ വരാത്തതാകാം.",
+                    amount("approved"),
+                    amount("paid"),
+                    amount("excess"),
+                ),
+                Lang::En => format!(
+                    "{} was approved for this work and KIIFB records {} paid, {} more. The source gives no reason; a revised approval may simply not be shown.",
+                    amount("approved"),
+                    amount("paid"),
+                    amount("excess"),
+                ),
+            }
+        }
     }
 }
 

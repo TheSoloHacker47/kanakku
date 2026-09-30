@@ -83,12 +83,16 @@ a.badge { text-decoration: none; }
 .hero .wrap { display: grid; gap: 32px; align-items: center; }
 .hero .lead { margin-top: 16px; }
 .hero figure { justify-self: center; width: min(100%, 27rem); }
+.hero figure.tall { width: min(72%, 17rem); }
 .hero figcaption { margin-top: 8px; font-size: 0.875rem; display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; }
 @media (min-width: 58rem) { .hero .wrap { grid-template-columns: 1.15fr 0.85fr; gap: 48px; } }
 .dots { display: block; width: 100%; height: auto; }
 .dots .land { fill: rgba(255, 255, 255, 0.5); stroke: var(--ink); stroke-width: 0.8; stroke-linejoin: round; }
-.dots circle { fill: var(--ink); }
-.dots .f { fill: var(--flag); stroke: var(--ink); stroke-width: 1.2; }
+.dots .pts { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+.dots .pts.f { stroke: var(--flag); stroke-width: 8; paint-order: stroke; }
+.dots.state .pts { stroke-width: 2.2; }
+.dots.state .pts.f { stroke-width: 5; }
+.dots.state .land { stroke-width: 0.6; }
 .dots .here { fill: var(--flag); stroke: var(--ink); stroke-width: 1.5; }
 .dots.plain .land { fill: var(--mist); }
 
@@ -159,7 +163,7 @@ div.row:hover .t { text-decoration: none; }
 .tiles { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); }
 .tile { display: flex; flex-direction: column; gap: 2px; min-height: 7.5rem; padding: 14px; border: 1px solid var(--line); border-radius: var(--r); text-decoration: none; }
 .tile:hover { background: var(--mist); border-color: var(--ink); }
-.tile b { font-size: 1.0625rem; line-height: 1.3; }
+.tile b { font-size: 1.0625rem; line-height: 1.3; overflow-wrap: anywhere; }
 .tile .n { margin-top: auto; padding-top: 10px; font: 800 1.6rem/1 var(--display); }
 .tile .n small { font: 400 0.8125rem/1 var(--text); color: var(--muted); margin-left: 4px; }
 

@@ -1,14 +1,15 @@
 //! Finished PWD works whose contractor is still liable for repairs.
 
+use kanakku_core::entity::contractor_display;
 use kanakku_core::fmt::{inr, inr_short};
 use kanakku_core::i18n::Lang;
-use kanakku_core::pwd_dlp::{self as dlp, contractor_display, work_display};
+use kanakku_core::names::district_label;
+use kanakku_core::pwd_dlp::{self as dlp, work_display};
 use kanakku_core::Date;
 use maud::{html, Markup};
-use worker::url::form_urlencoded::byte_serialize;
 
-use super::{en, icon, layout, Nav, Page};
-use crate::db::{Liability, LiabilityRow};
+use super::{en, icon, layout, pager, pair, Nav, Page};
+use crate::db::{Liability, LiabilityFilter, LiabilityRow, LIABILITY_PAGE_SIZE};
 use crate::icons;
 
 /// A liability ending within this many days is marked as ending soon.
@@ -18,30 +19,42 @@ pub fn title(lang: Lang) -> &'static str {
     lang.pick("അറ്റകുറ്റപ്പണി ആരുടെ ബാധ്യത?", "Who must repair it")
 }
 
-pub fn render(lang: Lang, origin: &str, wing: &str, contractor: &str, data: &Liability, today: Date) -> String {
+fn href(lang: Lang, filter: &LiabilityFilter) -> String {
+    let mut parts = Vec::new();
+    if !filter.district.is_empty() {
+        parts.push(pair("district", &filter.district));
+    }
+    if !filter.wing.is_empty() {
+        parts.push(pair("wing", &filter.wing));
+    }
+    if !filter.contractor.is_empty() {
+        parts.push(pair("c", &filter.contractor));
+    }
+    if filter.page > 1 {
+        parts.push(format!("page={}", filter.page));
+    }
+    let query = if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) };
+    format!("{}/liability{query}", lang.prefix())
+}
+
+pub fn render(lang: Lang, origin: &str, filter: &LiabilityFilter, data: &Liability, today: Date) -> String {
     let t = lang.t();
     let p = lang.prefix();
     let totals = &data.totals;
     let lead = lang.pick(
-        "പൊതുമരാമത്ത് വകുപ്പിന്റെ ഒരു റോഡോ കെട്ടിടമോ പൂർത്തിയായാലും, നിശ്ചിത കാലത്തേക്ക് അതിലെ തകരാറുകൾ സ്വന്തം ചെലവിൽ പരിഹരിക്കാൻ കരാറുകാരന് ബാധ്യതയുണ്ട്. എറണാകുളത്തെ പി.ഡബ്ല്യു.ഡി ഡിവിഷനുകളിൽ ആ കാലാവധിയിലുള്ള പ്രവൃത്തികൾ, വകുപ്പ് പ്രസിദ്ധീകരിച്ചതുപോലെ.",
-        "When PWD finishes a road or a building, the contractor stays liable for a set period to repair defects at their own cost. These are the works in Ernakulam's PWD divisions inside that period, as PWD lists them.",
+        "പൊതുമരാമത്ത് വകുപ്പിന്റെ ഒരു റോഡോ കെട്ടിടമോ പൂർത്തിയായാലും, നിശ്ചിത കാലത്തേക്ക് അതിലെ തകരാറുകൾ സ്വന്തം ചെലവിൽ പരിഹരിക്കാൻ കരാറുകാരന് ബാധ്യതയുണ്ട്. ആ കാലാവധിയിലുള്ള പ്രവൃത്തികൾ, വകുപ്പ് പ്രസിദ്ധീകരിച്ചതുപോലെ.",
+        "When PWD finishes a road or a building, the contractor stays liable for a set period to repair defects at their own cost. These are the works inside that period, as PWD lists them.",
     );
-    let link = |wing: &str, contractor: &str| {
-        let mut query = Vec::new();
-        if !wing.is_empty() {
-            query.push(format!("wing={}", byte_serialize(wing.as_bytes()).collect::<String>()));
-        }
-        if !contractor.is_empty() {
-            query.push(format!("c={}", byte_serialize(contractor.as_bytes()).collect::<String>()));
-        }
-        if query.is_empty() {
-            "/liability".to_string()
-        } else {
-            format!("/liability?{}", query.join("&"))
-        }
+    let with = |change: &dyn Fn(&mut LiabilityFilter)| {
+        let mut next = filter.clone();
+        next.page = 1;
+        change(&mut next);
+        href(lang, &next)
     };
-    let path = link(wing, contractor);
-    let chosen = data.rows.first().filter(|_| !contractor.is_empty()).and_then(|row| row.contractor.as_deref()).map(contractor_display);
+    let path = href(Lang::Ml, filter);
+    let pages = data.matching.div_ceil(LIABILITY_PAGE_SIZE).max(1);
+    let chosen =
+        data.rows.first().filter(|_| !filter.contractor.is_empty()).and_then(|row| row.contractor.as_deref()).map(contractor_display);
 
     let body = html! {
         div.phead {
@@ -53,6 +66,20 @@ pub fn render(lang: Lang, origin: &str, wing: &str, contractor: &str, data: &Lia
                 }
                 h1.d2 { (title(lang)) }
                 p.lead { (lead) }
+                form.tools method="get" action=(format!("{p}/liability")) {
+                    div.filters {
+                        div {
+                            label for="district" { (lang.pick("പി.ഡബ്ല്യു.ഡി ഓഫീസ് ഉള്ള ജില്ല", "District of the PWD office")) }
+                            select #district name="district" {
+                                option value="" { (lang.pick("കേരളം മുഴുവൻ", "All of Kerala")) }
+                                @for facet in data.districts.iter().filter(|f| !f.v.is_empty()) {
+                                    option value=(facet.v) selected[facet.v == filter.district] { (district_label(lang, &facet.v)) " (" (facet.n) ")" }
+                                }
+                            }
+                        }
+                        div.go { button.btn type="submit" { (t.apply) } }
+                    }
+                }
             }
         }
         div.wrap {
@@ -94,16 +121,22 @@ pub fn render(lang: Lang, origin: &str, wing: &str, contractor: &str, data: &Lia
                     " "
                     a href=(dlp::SOURCE_URL) rel="noopener" { (lang.pick("വകുപ്പിന്റെ പട്ടിക", "PWD's list")) (icon(icons::ARROW_UP_RIGHT)) }
                 }
+                p.small {
+                    (lang.pick(
+                        "ജില്ല എന്നത് പ്രവൃത്തി കൈകാര്യം ചെയ്യുന്ന പി.ഡബ്ല്യു.ഡി ഓഫീസ് ഉള്ള ജില്ലയാണ്; ചില ഓഫീസുകൾ അയൽജില്ലകളിലെ പ്രവൃത്തികളും നോക്കുന്നു.",
+                        "The district is that of the PWD office handling the work; some offices also look after works in neighbouring districts.",
+                    ))
+                }
             }
 
             div.result {
                 div.chips {
-                    a.chip.on[wing.is_empty()] href=(format!("{p}{}", link("", contractor))) { (lang.pick("എല്ലാം", "All")) " " (totals.total) }
+                    a.chip.on[filter.wing.is_empty()] href=(with(&|next| next.wing.clear())) { (lang.pick("എല്ലാം", "All")) " " (totals.total) }
                     @for facet in &data.wings {
-                        a.chip.on[facet.v == wing] href=(format!("{p}{}", link(&facet.v, contractor))) { (wing_label(lang, &facet.v)) " " (facet.n) }
+                        a.chip.on[facet.v == filter.wing] href=(with(&|next| next.wing = facet.v.clone())) { (wing_label(lang, &facet.v)) " " (facet.n) }
                     }
                     @if let Some(name) = &chosen {
-                        a.chip.on href=(format!("{p}{}", link(wing, ""))) lang="en" { (name) (icon(icons::X)) }
+                        a.chip.on href=(with(&|next| next.contractor.clear())) lang="en" { (name) (icon(icons::X)) }
                     }
                 }
                 span.small.muted { (lang.pick("കാലാവധി ആദ്യം തീരുന്നവ മുകളിൽ", "Soonest to end first")) }
@@ -115,10 +148,11 @@ pub fn render(lang: Lang, origin: &str, wing: &str, contractor: &str, data: &Lia
                     p.actions { a.btn.ghost href=(format!("{p}/liability")) { (lang.pick("എല്ലാം കാണുക", "Show all")) } }
                 }
             } @else {
-                ol.rows { @for row in &data.rows { (work_row(lang, row, today, &link)) } }
+                ol.rows { @for row in &data.rows { (work_row(lang, row, today)) } }
+                (pager(lang, filter.page, pages, &|n| with(&|next| next.page = n)))
             }
 
-            @if contractor.is_empty() && !data.contractors.is_empty() {
+            @if filter.contractor.is_empty() && !data.contractors.is_empty() {
                 section.sec {
                     div.sec-h {
                         div {
@@ -128,10 +162,11 @@ pub fn render(lang: Lang, origin: &str, wing: &str, contractor: &str, data: &Lia
                                 "Counted by works now under liability. We treat different spellings of a name as one; two people with the same name may have been counted together.",
                             )) }
                         }
+                        a.more href=(format!("{p}/contractors")) { (lang.pick("എല്ലാ കരാറുകാരും", "All contractors")) (icon(icons::ARROW_RIGHT)) }
                     }
                     div.tiles {
                         @for c in &data.contractors {
-                            a.tile href=(format!("{p}{}", link("", &c.contractor_key))) {
+                            a.tile href=(format!("{p}/c/{}", c.contractor_key)) {
                                 b lang="en" { (contractor_display(&c.contractor)) }
                                 span.n { (c.n) small { (lang.pick("പ്രവൃത്തികൾ", "works")) } }
                             }
@@ -179,7 +214,8 @@ pub fn render(lang: Lang, origin: &str, wing: &str, contractor: &str, data: &Lia
     )
 }
 
-fn work_row(lang: Lang, row: &LiabilityRow, today: Date, link: &dyn Fn(&str, &str) -> String) -> Markup {
+/// One work under liability. Also used on a contractor's page.
+pub fn work_row(lang: Lang, row: &LiabilityRow, today: Date) -> Markup {
     let ends = row.ends_on.as_deref().and_then(Date::parse_iso);
     let starts = row.starts_on.as_deref().and_then(Date::parse_iso);
     let left = ends.map(|end| end.days_since(today));
@@ -195,7 +231,7 @@ fn work_row(lang: Lang, row: &LiabilityRow, today: Date, link: &dyn Fn(&str, &st
                 span.amt {
                     @match (&row.contractor, &row.contractor_key) {
                         (Some(name), Some(key)) => {
-                            a href=(format!("{}{}", lang.prefix(), link("", key))) lang="en" { b { (contractor_display(name)) } }
+                            a href=(format!("{}/c/{key}", lang.prefix())) lang="en" { b { (contractor_display(name)) } }
                         },
                         (Some(name), None) => b lang="en" { (contractor_display(name)) },
                         _ => span { (lang.pick("കരാറുകാരന്റെ പേര് പ്രസിദ്ധീകരിച്ചിട്ടില്ല", "Contractor not named")) },

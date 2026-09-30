@@ -2,6 +2,7 @@
 
 use kanakku_core::i18n::Lang;
 use kanakku_core::model::Project;
+use kanakku_core::names;
 use worker::{
     console_error, console_log, event, Cache, Context, Env, Error, Headers, Method, Request, Response, Result, ScheduleContext,
     ScheduledEvent,
@@ -20,8 +21,8 @@ mod views;
 
 use http::Policy;
 
-const TILES_PATH: &str = "/tiles/ernakulam.pmtiles";
-const TILES_KEY: &str = "tiles/ernakulam.pmtiles";
+const TILES_PATH: &str = "/tiles/kerala.pmtiles";
+const TILES_KEY: &str = "tiles/kerala.pmtiles";
 
 #[event(fetch)]
 async fn fetch(req: Request, env: Env, ctx: Context) -> Result<Response> {
@@ -134,7 +135,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             to.set_path(&format!("{}/projects", lang.prefix()));
             Response::redirect_with_status(to, 301)
         }
-        "/" => http::html(views::home::render(lang, origin, &db::home(&db).await?), 200, Policy::Page),
+        "/" => http::html(views::home::render(lang, origin, &db::home(&db, "").await?, ""), 200, Policy::Page),
         "/projects" => {
             let filter = filter_from(req)?;
             let listing = db::list(&db, &filter).await?;
@@ -144,10 +145,26 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
         "/data" => http::html(views::pages::data(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
         "/map" => http::html(views::pages::map(lang, origin, checked().await?.as_deref()), 200, Policy::Map),
         "/funding" => {
-            let sort = req.url()?.query_pairs().find(|(key, _)| key == "sort").map(|(_, v)| db::FundingSort::parse(&v)).unwrap_or_default();
-            let (rows, totals) = db::funding_list(&db, sort).await?;
-            http::html(views::funding::list(lang, origin, sort, &rows, &totals), 200, Policy::Page)
+            let url = req.url()?;
+            let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, v)| v.trim().chars().take(80).collect::<String>()).unwrap_or_default();
+            let query = views::funding::Query {
+                sort: db::FundingSort::parse(&param("sort")),
+                district: names::canonical_district(&param("district")).unwrap_or("").to_string(),
+                q: param("q"),
+                flagged: !param("flag").is_empty(),
+                page: param("page").parse().unwrap_or(1).clamp(1, 10_000),
+            };
+            let listing = db::funding_list(&db, query.sort, &query.district, &query.q, query.flagged, query.page).await?;
+            http::html(views::funding::list(lang, origin, &query, &listing), 200, Policy::Page)
         }
+        "/contractors" => {
+            let url = req.url()?;
+            let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, v)| v.trim().chars().take(80).collect::<String>()).unwrap_or_default();
+            let (q, page) = (param("q"), param("page").parse().unwrap_or(1).clamp(1, 10_000));
+            let (rows, matching) = db::contractors(&db, &q, page).await?;
+            http::html(views::entities::contractors(lang, origin, &q, page, &rows, matching), 200, Policy::Page)
+        }
+        "/agencies" => http::html(views::entities::agencies(lang, origin, &db::agencies(&db).await?), 200, Policy::Page),
         "/status" => http::html(views::pages::status(lang, origin, &db::status(&db).await?, worker::Date::now().as_millis() as i64), 200, Policy::Page),
         "/api/v1/status" => {
             let status = db::status(&db).await?;
@@ -160,11 +177,16 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
         }
         "/liability" => {
             let url = req.url()?;
-            let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, v)| v.chars().take(80).collect::<String>()).unwrap_or_default();
-            let (wing, contractor) = (param("wing"), param("c"));
+            let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, v)| v.trim().chars().take(80).collect::<String>()).unwrap_or_default();
+            let filter = db::LiabilityFilter {
+                wing: param("wing"),
+                contractor: param("c"),
+                district: names::canonical_district(&param("district")).unwrap_or("").to_string(),
+                page: param("page").parse().unwrap_or(1).clamp(1, 10_000),
+            };
             let today = kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64);
-            let data = db::liability(&db, &wing, &contractor, &today.to_iso(), &today.plus_days(views::liability::SOON_DAYS).to_iso()).await?;
-            http::html(views::liability::render(lang, origin, &wing, &contractor, &data, today), 200, Policy::Page)
+            let data = db::liability(&db, &filter, &today.to_iso(), &today.plus_days(views::liability::SOON_DAYS).to_iso()).await?;
+            http::html(views::liability::render(lang, origin, &filter, &data, today), 200, Policy::Page)
         }
         "/api/v1/liability" => http::data(api::liability_json(&db::liability_export(&db).await?), "application/json; charset=utf-8"),
         "/api/v1/liability.csv" => http::data(api::liability_csv(&db::liability_export(&db).await?), "text/csv; charset=utf-8"),
@@ -190,6 +212,18 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
                     Some((project, data)) => http::data(api::project_json(&project, &data), "application/json; charset=utf-8"),
                     None => Response::error("{\"error\":\"no such project\"}", 404),
                 };
+            } else if let Some(district) = rest.strip_prefix("/d/").and_then(names::district_from_slug) {
+                return http::html(views::home::render(lang, origin, &db::home(&db, district).await?, district), 200, Policy::Page);
+            } else if let Some(key) = rest.strip_prefix("/c/").filter(|k| is_code(k)) {
+                let data = db::contractor(&db, key).await?;
+                if !data.works.is_empty() || !data.liability.is_empty() {
+                    let today = kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64);
+                    return http::html(views::entities::contractor(lang, origin, key, &data, today), 200, Policy::Page);
+                }
+            } else if let Some(key) = rest.strip_prefix("/a/").filter(|k| is_code(k)) {
+                if let Some(data) = db::agency(&db, key).await? {
+                    return http::html(views::entities::agency(lang, origin, &data), 200, Policy::Page);
+                }
             } else if let Some(reference) = rest.strip_prefix("/f/").filter(|r| is_code(r)) {
                 if let Some(data) = db::funding_project(&db, reference).await? {
                     let project = serde_json::from_str(&data.row.record_json).map_err(|e| Error::RustError(e.to_string()))?;
@@ -277,6 +311,9 @@ fn filter_from(req: &Request) -> Result<db::Filter> {
         let value: String = value.trim().chars().take(120).collect();
         match key.as_ref() {
             "q" => filter.q = value,
+            "district" if value == "-" => filter.district = value,
+            "district" => filter.district = names::canonical_district(&value).unwrap_or("").to_string(),
+            "agency" => filter.agency = value,
             "dept" => filter.department = value,
             "lac" => filter.constituency = value,
             "stage" => filter.stage = value,
@@ -291,7 +328,7 @@ fn filter_from(req: &Request) -> Result<db::Filter> {
 
 /// Project codes look like `PWD016-05-01`. Anything else is not worth a database query.
 fn is_code(s: &str) -> bool {
-    !s.is_empty() && s.len() <= 40 && s.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+    !s.is_empty() && s.len() <= 90 && s.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
 async fn admin(mut req: Request, env: &Env) -> Result<Response> {

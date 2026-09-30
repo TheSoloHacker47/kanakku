@@ -3,7 +3,8 @@
 use kanakku_core::flags::FlagKind;
 use kanakku_core::fmt::inr_short;
 use kanakku_core::i18n::{flag_label, Lang};
-use kanakku_core::names::{constituency_label, department_label};
+use kanakku_core::entity::agency_display;
+use kanakku_core::names::{constituency_label, department_label, district_label};
 use kanakku_core::stage::Stage;
 use maud::{html, Markup};
 use worker::url::form_urlencoded;
@@ -22,8 +23,14 @@ pub fn render(lang: Lang, origin: &str, filter: &Filter, listing: &Listing) -> S
 
     // The heading names what is selected, when one thing is.
     let constituency = listing.constituencies.iter().find(|c| c.v == filter.constituency);
+    let agency = listing.agency_name.as_deref().map(agency_display).unwrap_or_else(|| filter.agency.clone());
+    let district_name = |v: &str| district_label(lang, if v == "-" { "" } else { v }).to_string();
     let heading = if !filter.constituency.is_empty() {
         constituency_label(lang, &filter.constituency).to_string()
+    } else if !filter.agency.is_empty() {
+        agency.clone()
+    } else if !filter.district.is_empty() {
+        district_name(&filter.district)
     } else if !filter.department.is_empty() {
         department_label(lang, &filter.department)
     } else if filter.flag == "any" {
@@ -80,6 +87,15 @@ pub fn render(lang: Lang, origin: &str, filter: &Filter, listing: &Listing) -> S
                         summary.btn.ghost.sm { (icon(icons::SLIDERS_HORIZONTAL)) (lang.pick("അരിപ്പകളും ക്രമവും", "Filter and sort")) }
                         div.filters {
                             div {
+                                label for="district" { (lang.pick("ജില്ല", "District")) }
+                                select #district name="district" {
+                                    option value="" { (lang.pick("കേരളം മുഴുവൻ", "All of Kerala")) }
+                                    @for f in &listing.districts {
+                                        option value=(f.v) selected[f.v == filter.district] { (district_name(&f.v)) " (" (f.n) ")" }
+                                    }
+                                }
+                            }
+                            div {
                                 label for="dept" { (t.filter_department) }
                                 select #dept name="dept" {
                                     option value="" { (t.filter_all) }
@@ -88,15 +104,21 @@ pub fn render(lang: Lang, origin: &str, filter: &Filter, listing: &Listing) -> S
                                     }
                                 }
                             }
-                            div {
-                                label for="lac" { (t.filter_constituency) }
-                                select #lac name="lac" {
-                                    option value="" { (t.filter_all) }
-                                    @for f in &listing.constituencies {
-                                        option value=(f.v) selected[f.v == filter.constituency] { (constituency_label(lang, &f.v)) " (" (f.n) ")" }
+                            // Constituencies are offered once a district is chosen; the state has 140.
+                            @if !listing.constituencies.is_empty() {
+                                div {
+                                    label for="lac" { (t.filter_constituency) }
+                                    select #lac name="lac" {
+                                        option value="" { (t.filter_all) }
+                                        @for f in &listing.constituencies {
+                                            option value=(f.v) selected[f.v == filter.constituency] { (constituency_label(lang, &f.v)) " (" (f.n) ")" }
+                                        }
                                     }
                                 }
+                            } @else if !filter.constituency.is_empty() {
+                                input type="hidden" name="lac" value=(filter.constituency);
                             }
+                            @if !filter.agency.is_empty() { input type="hidden" name="agency" value=(filter.agency); }
                             div {
                                 label for="stage" { (lang.pick("ഘട്ടം", "Stage")) }
                                 select #stage name="stage" {
@@ -113,7 +135,7 @@ pub fn render(lang: Lang, origin: &str, filter: &Filter, listing: &Listing) -> S
                                 select #flag name="flag" {
                                     option value="" { (t.filter_all) }
                                     option value="any" selected[filter.flag == "any"] { (t.filter_any_flag) }
-                                    @for kind in FlagKind::ALL {
+                                    @for kind in FlagKind::DASHBOARD {
                                         option value=(kind.as_str()) selected[filter.flag == kind.as_str()] { (flag_label(lang, kind)) }
                                     }
                                 }
@@ -138,6 +160,12 @@ pub fn render(lang: Lang, origin: &str, filter: &Filter, listing: &Listing) -> S
                 div.chips {
                     @if !filter.q.is_empty() {
                         (chip(&format!("“{}”", filter.q), &link(&Filter { q: String::new(), ..filter.clone() }, 1)))
+                    }
+                    @if !filter.district.is_empty() {
+                        (chip(&district_name(&filter.district), &link(&Filter { district: String::new(), ..filter.clone() }, 1)))
+                    }
+                    @if !filter.agency.is_empty() {
+                        (chip(&agency, &link(&Filter { agency: String::new(), ..filter.clone() }, 1)))
                     }
                     @if !filter.department.is_empty() {
                         (chip(&department_label(lang, &filter.department), &link(&Filter { department: String::new(), ..filter.clone() }, 1)))
@@ -222,6 +250,8 @@ fn query(filter: &Filter, page: u32) -> String {
     let mut s = form_urlencoded::Serializer::new(String::new());
     for (key, value) in [
         ("q", filter.q.as_str()),
+        ("district", filter.district.as_str()),
+        ("agency", filter.agency.as_str()),
         ("dept", filter.department.as_str()),
         ("lac", filter.constituency.as_str()),
         ("stage", filter.stage.as_str()),

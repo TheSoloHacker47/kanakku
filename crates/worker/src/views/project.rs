@@ -1,18 +1,19 @@
 //! One project: its figures, its stage, its flags, what is missing, and where it all came from.
 
+use kanakku_core::entity::{agency_display, agency_key, contractor_display, contractor_key};
 use kanakku_core::flags::FlagKind;
 use kanakku_core::fmt::{inr, inr_short, pct};
 use kanakku_core::gaps;
 use kanakku_core::i18n::{flag_explain, flag_label, flag_rule, Lang};
 use kanakku_core::model::{Headline, Project, Work};
-use kanakku_core::names::{constituency_label, department_label};
+use kanakku_core::names::{constituency_label, department_label, district_label};
 use kanakku_core::stage::Stage;
 use kanakku_core::title::display_title;
 use kanakku_core::{kiifb, Date};
 use maud::{html, Markup};
 use worker::url::form_urlencoded::byte_serialize;
 
-use super::{big_amount, department_icon, dot_map, en, funding, icon, layout, meter, Nav, Page};
+use super::{big_amount, department_icon, dot_map, en, funding, icon, layout, meter, on_dot_map, Nav, Page};
 use crate::db::ProjectPage;
 use crate::http::encode_segment;
 use crate::icons;
@@ -35,7 +36,7 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
         .map(|s| (s.lat, s.lng))
         .chain(project.works.iter().filter_map(|w| Some((w.lat?, w.lng?))))
         .collect();
-    let on_map = here.iter().any(|(lat, lng)| crate::district::project(*lat, *lng).is_some());
+    let on_map = here.iter().any(|(lat, lng)| on_dot_map(&project.district, *lat, *lng));
     let share = format!("https://wa.me/?text={}", byte_serialize(format!("{title} — {url}").as_bytes()).collect::<String>());
 
     let body = html! {
@@ -45,6 +46,10 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
                     a href=(format!("{p}/")) { (t.site_name) }
                     (icon(icons::CHEVRON_RIGHT))
                     a href=(format!("{p}/projects")) { (t.nav_projects) }
+                    @if !project.district.is_empty() {
+                        (icon(icons::CHEVRON_RIGHT))
+                        a href=(format!("{p}/d/{}", project.district.to_lowercase())) { (district_label(lang, &project.district)) }
+                    }
                     @if let Some(department) = &project.department {
                         (icon(icons::CHEVRON_RIGHT))
                         a href=(format!("{p}/projects?dept={}", byte_serialize(department.as_bytes()).collect::<String>())) { (department_label(lang, department)) }
@@ -80,12 +85,12 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
                     h2 { (t.location) }
                     @if on_map {
                         a href=(format!("{p}/map#{}", encode_segment(&project.code))) aria-label=(t.open_in_maps) {
-                            (dot_map(&[], &here, lang.pick("ജില്ലയിൽ ഈ പദ്ധതിയുടെ സ്ഥാനം", "Where this project is in the district"), true))
+                            (dot_map(&project.district, &[], &here, lang.pick("ഈ പദ്ധതിയുടെ സ്ഥാനം", "Where this project is"), true))
                         }
                     } @else if here.is_empty() {
                         p.muted { (t.not_reported) }
                     } @else {
-                        p.muted { (lang.pick("കിഫ്ബി രേഖപ്പെടുത്തിയ സ്ഥാനം ജില്ലയ്ക്ക് പുറത്താണ്.", "The location KIIFB records lies outside the district.")) }
+                        p.muted { (lang.pick("കിഫ്ബി രേഖപ്പെടുത്തിയ സ്ഥാനം ഈ ഭൂപടത്തിന് പുറത്താണ്.", "The location KIIFB records lies outside this map.")) }
                     }
                 }
             }
@@ -199,7 +204,7 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
                             div { dt { (t.department) } dd { (department_label(lang, department)) } }
                         }
                         @if let Some(agency) = &project.executing_agency {
-                            div { dt { (t.executing_agency) } dd lang="en" { (agency) } }
+                            div { dt { (t.executing_agency) } dd lang="en" { a href=(format!("{p}/a/{}", agency_key(agency))) { (agency_display(agency)) } } }
                         }
                         @for c in &project.constituencies {
                             div {
@@ -425,7 +430,15 @@ fn work(lang: Lang, w: &Work, index: usize, today: Date) -> Markup {
             }
             (schedule(lang, w, today))
             dl.kv {
-                (text_row(t.contractor, w.contractor.as_deref(), true))
+                div {
+                    dt { (t.contractor) }
+                    dd {
+                        @match w.contractor.as_deref() {
+                            Some(name) => a href=(format!("{}/c/{}", lang.prefix(), contractor_key(name))) lang="en" { (contractor_display(name)) },
+                            None => span.none { "—" },
+                        }
+                    }
+                }
                 (text_row(lang.pick("നിർവഹണ സ്ഥാപനം (SPV)", "Implementing agency (SPV)"), w.spv.as_deref(), false))
                 (amount_row(lang, t.contract_amount, w.contract_amount, true))
                 (amount_row(lang, t.paid_amount, w.paid_amount, true))

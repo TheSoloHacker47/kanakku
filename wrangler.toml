@@ -24,7 +24,7 @@ bucket_name = "kanakku"
 crons = ["0 21 * * *"] # 02:30 IST
 
 [vars]
-PILOT_DISTRICT = "Ernakulam"
+PILOT_DISTRICT = "*" # one district by name, or * for the whole state
 EDGE_CACHE = "on"
 CONTACT = "" # a URL or address for the scraper's User-Agent, so KIIFB can reach you
 

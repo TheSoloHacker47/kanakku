@@ -6,11 +6,15 @@ use serde_json::{json, Value};
 use crate::model::Project;
 use crate::Date;
 
-pub const RULES_VERSION: u32 = 1;
+/// Version 2 (30 Sep 2026): "overdue" no longer fires for works KIIFB lists as foreclosed,
+/// terminated or disposed, and "paid above approval" was added.
+pub const RULES_VERSION: u32 = 2;
 
 pub const ESCALATION_RATIO: f64 = 1.2;
 pub const MISMATCH_POINTS: f64 = 25.0;
 pub const STALE_DAYS: i32 = 90;
+/// A work is "paid above approval" when payments exceed the approved amount by more than this share.
+pub const OVERPAID_PERCENT: i64 = 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FlagKind {
@@ -18,10 +22,16 @@ pub enum FlagKind {
     PaymentVsProgress,
     CostEscalation,
     Stale,
+    /// Raised on works from KIIFB's project status page, not on dashboard projects.
+    PaidAboveApproval,
 }
 
 impl FlagKind {
-    pub const ALL: [FlagKind; 4] =
+    pub const ALL: [FlagKind; 5] =
+        [FlagKind::Overdue, FlagKind::PaymentVsProgress, FlagKind::CostEscalation, FlagKind::Stale, FlagKind::PaidAboveApproval];
+
+    /// The rules that are evaluated on dashboard projects.
+    pub const DASHBOARD: [FlagKind; 4] =
         [FlagKind::Overdue, FlagKind::PaymentVsProgress, FlagKind::CostEscalation, FlagKind::Stale];
 
     pub fn as_str(self) -> &'static str {
@@ -30,6 +40,7 @@ impl FlagKind {
             FlagKind::PaymentVsProgress => "payment_vs_progress",
             FlagKind::CostEscalation => "cost_escalation",
             FlagKind::Stale => "stale",
+            FlagKind::PaidAboveApproval => "paid_above_approval",
         }
     }
 
@@ -61,7 +72,7 @@ pub fn evaluate(project: &Project, today: Date, history: &History) -> Vec<Flag> 
 
     for (i, work) in project.works.iter().enumerate() {
         if let Some(end) = work.scheduled_end {
-            if today > end && !work.is_completed() {
+            if today > end && !work.is_closed() {
                 flags.push(Flag {
                     kind: FlagKind::Overdue,
                     work_ref: Some(work.reference(i)),

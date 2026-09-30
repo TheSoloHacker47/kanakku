@@ -1,11 +1,13 @@
-//! Weekly read of the Kerala PWD defect-liability list for the pilot district's divisions.
+//! Weekly read of the Kerala PWD defect-liability list.
 //!
-//! One request per wing finds the divisions; then each of the district's divisions is read page
-//! by page through the site's own pager links, one request at a time with a pause in between.
+//! For the whole state each wing's list is read page by page. For one district, a request per
+//! wing finds the divisions and only that district's are read. Either way the site's own pager
+//! links are followed, one request at a time with a pause in between.
 
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
+use kanakku_core::names::ALL_DISTRICTS;
 use kanakku_core::pwd_dlp::{self as dlp, LiabilityWork};
 use kanakku_core::Date;
 use serde::{Deserialize, Serialize};
@@ -20,7 +22,7 @@ const SOURCE_ID: u32 = 3;
 const MIN_AGE_MS: i64 = 6 * 24 * 60 * 60 * 1000 + 12 * 60 * 60 * 1000;
 const PAUSE: Duration = Duration::from_millis(1000);
 /// A division with more pages than this means the pager was misread.
-const MAX_PAGES: u32 = 40;
+const MAX_PAGES: u32 = 90;
 
 #[derive(Debug, Default, Serialize)]
 pub struct Report {
@@ -34,7 +36,7 @@ pub struct Report {
     pub went_missing: usize,
     pub returned: usize,
     pub with_amount: usize,
-    pub amounts_updated: usize,
+    pub rows_updated: usize,
 }
 
 #[derive(Deserialize)]
@@ -54,6 +56,8 @@ struct ExistingRow {
     reference: String,
     missing_since: Option<String>,
     agreed_amount: Option<i64>,
+    contractor_key: Option<String>,
+    district: Option<String>,
 }
 
 /// Runs one read. Without `force` it does nothing if the list was read within the last week.
@@ -85,6 +89,27 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
         }
         let first = get(&agent, &dlp::listing_url(wing, None, 1)).await?;
         report.requests += 1;
+
+        if district == ALL_DISTRICTS {
+            // The whole wing, page by page. The first page is already in hand.
+            let mut listing = dlp::parse_listing(&first, wing_name).map_err(|e| Error::RustError(e.to_string()))?;
+            let last_page = listing.last_page.min(MAX_PAGES);
+            let mut page = 1;
+            loop {
+                works.append(&mut listing.works);
+                page += 1;
+                if page > last_page {
+                    break;
+                }
+                Delay::from(PAUSE).await;
+                let body = get(&agent, &dlp::listing_url(wing, None, page)).await?;
+                report.requests += 1;
+                listing = dlp::parse_listing(&body, wing_name).map_err(|e| Error::RustError(e.to_string()))?;
+            }
+            report.divisions.push(format!("{wing_name}: {last_page} pages"));
+            continue;
+        }
+
         for division in dlp::divisions(&first).into_iter().filter(|d| dlp::in_district(d, &district)) {
             let mut page = 1;
             let mut last_page = 1;
@@ -103,7 +128,7 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
     }
     if works.is_empty() {
         // Nothing at all means the pages changed shape, not that every liability ended at once.
-        return Err(Error::RustError(format!("no {district} works in the PWD liability list; refusing to ingest")));
+        return Err(Error::RustError("no works in the PWD liability list; refusing to ingest".into()));
     }
 
     // PWD repeats some works; keep the first row, and an amount from whichever row carries one.
@@ -158,7 +183,7 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
     };
 
     let existing: HashMap<String, ExistingRow> = db
-        .prepare("SELECT ref, missing_since, agreed_amount FROM liability_works")
+        .prepare("SELECT ref, missing_since, agreed_amount, contractor_key, district FROM liability_works")
         .all()
         .await?
         .results::<ExistingRow>()?
@@ -175,9 +200,17 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
                     report.returned += 1;
                     statements.push(query!(&db, "UPDATE liability_works SET missing_since = NULL WHERE ref = ?1", reference)?);
                 }
-                if row.agreed_amount != work.agreed_amount {
-                    report.amounts_updated += 1;
-                    statements.push(query!(&db, "UPDATE liability_works SET agreed_amount = ?2 WHERE ref = ?1", reference, work.agreed_amount)?);
+                let (key, office) = (work.contractor_key(), work.office_district().map(str::to_string));
+                if row.agreed_amount != work.agreed_amount || row.contractor_key != key || row.district != office {
+                    report.rows_updated += 1;
+                    statements.push(query!(
+                        &db,
+                        "UPDATE liability_works SET agreed_amount = ?2, contractor_key = ?3, district = ?4 WHERE ref = ?1",
+                        reference,
+                        work.agreed_amount,
+                        key,
+                        office,
+                    )?);
                 }
             }
             None => {
@@ -185,13 +218,13 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
                 statements.push(query!(
                     &db,
                     "INSERT INTO liability_works (ref, wing, name, contractor, contractor_key, starts_on, ends_on, division, subdivision,
-                                                  first_seen_on, snapshot_id, agreed_amount)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                                                  first_seen_on, snapshot_id, agreed_amount, district)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                     reference,
                     work.wing,
                     work.name,
                     work.contractor,
-                    work.contractor.as_deref().map(dlp::contractor_key).filter(|key| !key.is_empty()),
+                    work.contractor_key(),
                     work.starts_on.map(Date::to_iso),
                     work.ends_on.map(Date::to_iso),
                     work.division,
@@ -199,6 +232,7 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
                     today_iso,
                     snapshot_id,
                     work.agreed_amount,
+                    work.office_district(),
                 )?);
             }
         }

@@ -51,6 +51,10 @@ impl Sort {
 #[derive(Clone, Debug, Default)]
 pub struct Filter {
     pub q: String,
+    /// A district name, `-` for projects KIIFB files under no district, or empty for the whole state.
+    pub district: String,
+    /// An implementing agency's key.
+    pub agency: String,
     pub department: String,
     pub constituency: String,
     /// A stage name, see `Stage::as_str`.
@@ -64,7 +68,13 @@ pub struct Filter {
 
 impl Filter {
     pub fn is_empty(&self) -> bool {
-        self.q.is_empty() && self.department.is_empty() && self.constituency.is_empty() && self.stage.is_empty() && self.flag.is_empty()
+        self.q.is_empty()
+            && self.district.is_empty()
+            && self.agency.is_empty()
+            && self.department.is_empty()
+            && self.constituency.is_empty()
+            && self.stage.is_empty()
+            && self.flag.is_empty()
     }
 }
 
@@ -117,16 +127,42 @@ pub struct Listing {
     pub departments: Vec<Facet>,
     pub constituencies: Vec<Facet>,
     pub stages: Vec<Facet>,
+    pub districts: Vec<Facet>,
+    /// The name of the agency the list is narrowed to, as a source spells it.
+    pub agency_name: Option<String>,
 }
 
-const DEPARTMENT_FACET: &str = "SELECT department AS v, COUNT(*) AS n, SUM(expenditure) AS spent, SUM(flag_count > 0) AS flagged
-    FROM projects WHERE department IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1";
+/// Narrows `projects p` to a district: `?1` is a district name, `-` for none stated, or empty for all.
+const IN_DISTRICT: &str = "(?1 = '' OR (?1 = '-' AND p.district = '') OR p.id IN (SELECT project_id FROM project_districts WHERE district = ?1))";
+
+fn department_facet() -> String {
+    format!(
+        "SELECT department AS v, COUNT(*) AS n, SUM(expenditure) AS spent, SUM(flag_count > 0) AS flagged
+         FROM projects p WHERE department IS NOT NULL AND {IN_DISTRICT} GROUP BY 1 ORDER BY 2 DESC, 1"
+    )
+}
+
+/// Constituencies of one district. For the whole state the list would be 140 long, so it is left empty.
 const CONSTITUENCY_FACET: &str = "SELECT c.name AS v, COUNT(*) AS n, SUM(p.expenditure) AS spent, SUM(p.flag_count > 0) AS flagged,
         MAX(c.mla_name) AS mla, MAX(c.mla_name_ml) AS mla_ml
-    FROM project_constituencies c JOIN projects p ON p.id = c.project_id GROUP BY 1 ORDER BY 1";
-const STAGE_FACET: &str = "SELECT stage AS v, COUNT(*) AS n FROM projects WHERE stage IS NOT NULL GROUP BY 1";
-const TOTALS: &str = "SELECT COUNT(*) AS total, COALESCE(SUM(p.flag_count > 0), 0) AS flagged, SUM(p.expenditure) AS spent,
-    (SELECT last_scraped_at FROM sources WHERE id = 1) AS last_checked FROM projects p";
+    FROM project_constituencies c JOIN projects p ON p.id = c.project_id WHERE c.district = ?1 GROUP BY 1 ORDER BY 1";
+
+fn stage_facet() -> String {
+    format!("SELECT stage AS v, COUNT(*) AS n FROM projects p WHERE stage IS NOT NULL AND {IN_DISTRICT} GROUP BY 1")
+}
+
+/// Every district with its projects, and the projects filed under none as the district `-`.
+const DISTRICT_FACET: &str = "SELECT d.district AS v, COUNT(*) AS n, SUM(p.expenditure) AS spent, SUM(p.flag_count > 0) AS flagged
+      FROM project_districts d JOIN projects p ON p.id = d.project_id GROUP BY 1
+    UNION ALL
+    SELECT '-', COUNT(*), SUM(expenditure), SUM(flag_count > 0) FROM projects WHERE district = '' HAVING COUNT(*) > 0";
+
+fn totals(clause: &str) -> String {
+    format!(
+        "SELECT COUNT(*) AS total, COALESCE(SUM(p.flag_count > 0), 0) AS flagged, SUM(p.expenditure) AS spent,
+                (SELECT last_scraped_at FROM sources WHERE id = 1) AS last_checked FROM projects p {clause}"
+    )
+}
 
 pub async fn list(db: &D1Database, filter: &Filter) -> Result<Listing> {
     let (clause, binds) = where_clause(filter);
@@ -142,18 +178,32 @@ pub async fn list(db: &D1Database, filter: &Filter) -> Result<Listing> {
             filter.sort.order_by()
         ))
         .bind(&page_binds)?;
-    let totals = db.prepare(format!("{TOTALS} {clause}")).bind(&binds)?;
+    let district = [JsValue::from_str(&filter.district)];
 
     let results = db
-        .batch(vec![rows, totals, db.prepare(DEPARTMENT_FACET), db.prepare(CONSTITUENCY_FACET), db.prepare(STAGE_FACET)])
+        .batch(vec![
+            rows,
+            db.prepare(totals(&clause)).bind(&binds)?,
+            db.prepare(department_facet()).bind(&district)?,
+            db.prepare(CONSTITUENCY_FACET).bind(&district)?,
+            db.prepare(stage_facet()).bind(&district)?,
+            db.prepare(DISTRICT_FACET),
+            query!(db, "SELECT executing_agency AS name FROM projects WHERE agency_key = ?1 AND ?1 != '' LIMIT 1", filter.agency)?,
+        ])
         .await?;
 
+    #[derive(Deserialize)]
+    struct Name {
+        name: Option<String>,
+    }
     Ok(Listing {
         rows: results[0].results()?,
         totals: results[1].results::<Totals>()?.into_iter().next().unwrap_or_default(),
         departments: results[2].results()?,
         constituencies: results[3].results()?,
         stages: results[4].results()?,
+        districts: results[5].results()?,
+        agency_name: results[6].results::<Name>()?.into_iter().next().and_then(|row| row.name),
     })
 }
 
@@ -177,6 +227,14 @@ fn where_clause(filter: &Filter) -> (String, Vec<JsValue>) {
             let n = bind(&like);
             parts.push(format!("(p.title_en LIKE ?{n} ESCAPE '\\' OR p.code LIKE ?{n} ESCAPE '\\')"));
         }
+    }
+    if filter.district == "-" {
+        parts.push("p.district = ''".into());
+    } else if !filter.district.is_empty() {
+        parts.push(format!("p.id IN (SELECT project_id FROM project_districts WHERE district = ?{})", bind(&filter.district)));
+    }
+    if !filter.agency.is_empty() {
+        parts.push(format!("p.agency_key = ?{}", bind(&filter.agency)));
     }
     if !filter.department.is_empty() {
         parts.push(format!("p.department = ?{}", bind(&filter.department)));
@@ -227,6 +285,8 @@ pub struct Home {
     pub funding: FundingTotals,
     /// Works currently on PWD's defect-liability list.
     pub liability: u32,
+    /// Every district, for the state's front page.
+    pub districts: Vec<Facet>,
 }
 
 #[derive(Deserialize)]
@@ -234,29 +294,54 @@ struct Count {
     n: u32,
 }
 
-pub async fn home(db: &D1Database) -> Result<Home> {
+/// The front page for the whole state (`district` empty) or for one district.
+pub async fn home(db: &D1Database, district: &str) -> Result<Home> {
     let results = db
         .batch(vec![
-            db.prepare(TOTALS),
-            db.prepare(format!(
-                "SELECT {LIST_COLUMNS} FROM projects p WHERE p.flag_count > 0 ORDER BY p.flag_count DESC, p.headline_amount DESC LIMIT 6"
-            )),
-            db.prepare(format!("SELECT {LIST_COLUMNS} FROM projects p ORDER BY COALESCE(p.expenditure, 0) DESC LIMIT 5")),
-            db.prepare(DEPARTMENT_FACET),
-            db.prepare(CONSTITUENCY_FACET),
-            db.prepare(STAGE_FACET),
-            db.prepare(
-                "SELECT s.lat, s.lng, p.flag_count > 0 AS flagged FROM sites s JOIN projects p ON p.id = s.project_id
-                 UNION ALL
-                 SELECT w.lat, w.lng, p.flag_count > 0 FROM works w JOIN projects p ON p.id = w.project_id WHERE w.lat IS NOT NULL",
-            ),
-            db.prepare(
-                "SELECT p.code, p.title_en, o.field, o.old_value, o.new_value, o.observed_on
-                 FROM observations o JOIN projects p ON p.id = o.project_id ORDER BY o.id DESC LIMIT 6",
-            ),
-            db.prepare(FUNDING_TOTALS),
+            query!(db, &totals(&format!("WHERE {IN_DISTRICT}")), district)?,
+            query!(
+                db,
+                &format!(
+                    "SELECT {LIST_COLUMNS} FROM projects p WHERE p.flag_count > 0 AND {IN_DISTRICT}
+                     ORDER BY p.flag_count DESC, p.headline_amount DESC LIMIT 6"
+                ),
+                district,
+            )?,
+            query!(
+                db,
+                &format!("SELECT {LIST_COLUMNS} FROM projects p WHERE {IN_DISTRICT} ORDER BY COALESCE(p.expenditure, 0) DESC LIMIT 5"),
+                district,
+            )?,
+            query!(db, &department_facet(), district)?,
+            query!(db, CONSTITUENCY_FACET, district)?,
+            query!(db, &stage_facet(), district)?,
+            query!(
+                db,
+                &format!(
+                    "SELECT s.lat, s.lng, p.flag_count > 0 AS flagged FROM sites s JOIN projects p ON p.id = s.project_id WHERE {IN_DISTRICT}
+                     UNION ALL
+                     SELECT w.lat, w.lng, p.flag_count > 0 FROM works w JOIN projects p ON p.id = w.project_id
+                      WHERE w.lat IS NOT NULL AND {IN_DISTRICT}"
+                ),
+                district,
+            )?,
+            query!(
+                db,
+                &format!(
+                    "SELECT p.code, p.title_en, o.field, o.old_value, o.new_value, o.observed_on
+                     FROM observations o JOIN projects p ON p.id = o.project_id WHERE {IN_DISTRICT} ORDER BY o.id DESC LIMIT 6"
+                ),
+                district,
+            )?,
+            query!(db, &funding_totals(), district)?,
             // Today in India, since liability dates are Indian calendar days.
-            db.prepare("SELECT COUNT(*) AS n FROM liability_works WHERE missing_since IS NULL AND ends_on >= date('now', '+330 minutes')"),
+            query!(
+                db,
+                "SELECT COUNT(*) AS n FROM liability_works
+                 WHERE missing_since IS NULL AND ends_on >= date('now', '+330 minutes') AND (?1 = '' OR district = ?1)",
+                district,
+            )?,
+            db.prepare(DISTRICT_FACET),
         ])
         .await?;
     Ok(Home {
@@ -270,6 +355,7 @@ pub async fn home(db: &D1Database) -> Result<Home> {
         changes: results[7].results()?,
         funding: results[8].results::<FundingTotals>()?.into_iter().next().unwrap_or_default(),
         liability: results[9].results::<Count>()?.into_iter().next().map(|row| row.n).unwrap_or(0),
+        districts: results[10].results()?,
     })
 }
 
@@ -471,7 +557,9 @@ pub struct FundingRow {
     pub approved_amount: Option<i64>,
     pub released_amount: Option<i64>,
     pub work_count: u32,
-    pub over_paid_works: u32,
+    pub flag_count: u32,
+    /// Whether the project's work table has been read yet.
+    pub read: u32,
     /// Map packages this project was joined to.
     pub packages: u32,
 }
@@ -483,27 +571,66 @@ pub struct FundingTotals {
     pub released: Option<i64>,
     pub evaluating: u32,
     pub works: u32,
+    /// Projects whose work table has not been read yet, so whose paid figure is still KIIFB's listed one.
+    pub unread: u32,
+    pub flagged: u32,
     pub last_checked: Option<String>,
 }
 
-const FUNDING_TOTALS: &str = "SELECT COUNT(*) AS total, SUM(approved_amount) AS approved, SUM(released_amount) AS released,
-        COALESCE(SUM(approved_amount IS NULL), 0) AS evaluating, COALESCE(SUM(work_count), 0) AS works,
-        (SELECT last_scraped_at FROM sources WHERE id = 2) AS last_checked
-    FROM funding_projects WHERE missing_since IS NULL";
+/// Narrows `funding_projects f` to a district; `?1` is a district name or empty for the whole state.
+const FUNDED_IN_DISTRICT: &str = "(?1 = '' OR f.id IN (SELECT funding_project_id FROM funding_districts WHERE district = ?1))";
 
-pub async fn funding_list(db: &D1Database, sort: FundingSort) -> Result<(Vec<FundingRow>, FundingTotals)> {
+fn funding_totals() -> String {
+    format!(
+        "SELECT COUNT(*) AS total, SUM(approved_amount) AS approved, SUM(released_amount) AS released,
+                COALESCE(SUM(approved_amount IS NULL), 0) AS evaluating, COALESCE(SUM(work_count), 0) AS works,
+                COALESCE(SUM(detail_checked_at IS NULL), 0) AS unread, COALESCE(SUM(flag_count > 0), 0) AS flagged,
+                (SELECT last_scraped_at FROM sources WHERE id = 2) AS last_checked
+         FROM funding_projects f WHERE missing_since IS NULL AND {FUNDED_IN_DISTRICT}"
+    )
+}
+
+pub const FUNDING_PAGE_SIZE: u32 = 40;
+
+pub struct FundingListing {
+    pub rows: Vec<FundingRow>,
+    pub totals: FundingTotals,
+    /// How many projects match the search and filters, for paging.
+    pub matching: u32,
+}
+
+pub async fn funding_list(db: &D1Database, sort: FundingSort, district: &str, q: &str, flagged: bool, page: u32) -> Result<FundingListing> {
+    let like = format!("%{}%", q.trim().replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+    let narrowed = format!(
+        "f.missing_since IS NULL AND {FUNDED_IN_DISTRICT} AND (?2 = '%%' OR f.name LIKE ?2 ESCAPE '\\' OR f.spv LIKE ?2 ESCAPE '\\')
+         AND (?3 = 0 OR f.flag_count > 0)"
+    );
     let results = db
         .batch(vec![
-            db.prepare(format!(
-                "SELECT f.ref, f.name, f.department, f.spv, f.approved_amount, f.released_amount, f.work_count, f.over_paid_works,
-                        (SELECT COUNT(*) FROM projects p WHERE {FUNDING_JOIN}) AS packages
-                 FROM funding_projects f WHERE f.missing_since IS NULL ORDER BY {}",
-                sort.order_by()
-            )),
-            db.prepare(FUNDING_TOTALS),
+            query!(
+                db,
+                &format!(
+                    "SELECT f.ref, f.name, f.department, f.spv, f.approved_amount, f.released_amount, f.work_count, f.flag_count,
+                            f.detail_checked_at IS NOT NULL AS read,
+                            (SELECT COUNT(*) FROM projects p WHERE {FUNDING_JOIN}) AS packages
+                     FROM funding_projects f WHERE {narrowed} ORDER BY {} LIMIT ?4 OFFSET ?5",
+                    sort.order_by()
+                ),
+                district,
+                like,
+                flagged,
+                FUNDING_PAGE_SIZE,
+                page.saturating_sub(1) * FUNDING_PAGE_SIZE,
+            )?,
+            query!(db, &funding_totals(), district)?,
+            query!(db, &format!("SELECT COUNT(*) AS n FROM funding_projects f WHERE {narrowed}"), district, like, flagged)?,
         ])
         .await?;
-    Ok((results[0].results()?, results[1].results::<FundingTotals>()?.into_iter().next().unwrap_or_default()))
+    Ok(FundingListing {
+        rows: results[0].results()?,
+        totals: results[1].results::<FundingTotals>()?.into_iter().next().unwrap_or_default(),
+        matching: results[2].results::<Count>()?.into_iter().next().map(|row| row.n).unwrap_or(0),
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -531,6 +658,7 @@ pub struct FundingPage {
     pub links: Vec<WorkLink>,
     pub packages: Vec<Sibling>,
     pub observations: Vec<ObservationRow>,
+    pub flags: Vec<FlagRow>,
 }
 
 pub async fn funding_project(db: &D1Database, reference: &str) -> Result<Option<FundingPage>> {
@@ -566,10 +694,24 @@ pub async fn funding_project(db: &D1Database, reference: &str) -> Result<Option<
                 ),
                 reference,
             )?,
+            query!(
+                db,
+                &format!(
+                    "SELECT type, work_ref, rule_version, value_json, status, created_on, cleared_on
+                     FROM funding_flags WHERE funding_project_id = {ID} ORDER BY status = 'open' DESC, id DESC LIMIT 40"
+                ),
+                reference,
+            )?,
         ])
         .await?;
     let Some(row) = results[0].results::<FundingDetailRow>()?.into_iter().next() else { return Ok(None) };
-    Ok(Some(FundingPage { row, links: results[1].results()?, packages: results[2].results()?, observations: results[3].results()? }))
+    Ok(Some(FundingPage {
+        row,
+        links: results[1].results()?,
+        packages: results[2].results()?,
+        observations: results[3].results()?,
+        flags: results[4].results()?,
+    }))
 }
 
 /// Every status-page project, for the open-data endpoints.
@@ -638,26 +780,42 @@ pub struct Liability {
     pub rows: Vec<LiabilityRow>,
     pub totals: LiabilityTotals,
     pub wings: Vec<Facet>,
+    pub districts: Vec<Facet>,
     pub contractors: Vec<ContractorCount>,
+    /// How many works match the filters, for paging.
+    pub matching: u32,
 }
 
 const LIABILITY_COLUMNS: &str = "wing, name, contractor, contractor_key, agreed_amount, starts_on, ends_on, division, subdivision";
+pub const LIABILITY_PAGE_SIZE: u32 = 60;
 
-/// `wing` and `contractor` narrow the rows; the totals and facets always describe the whole list.
+#[derive(Clone, Debug, Default)]
+pub struct LiabilityFilter {
+    pub wing: String,
+    pub contractor: String,
+    /// The district of the PWD office handling the work.
+    pub district: String,
+    pub page: u32,
+}
+
+/// The filters narrow the rows; the totals describe the chosen district as a whole.
 /// `today` and `soon` are yyyy-mm-dd: works ending between them count as ending soon.
-pub async fn liability(db: &D1Database, wing: &str, contractor: &str, today: &str, soon: &str) -> Result<Liability> {
+pub async fn liability(db: &D1Database, filter: &LiabilityFilter, today: &str, soon: &str) -> Result<Liability> {
+    const NARROWED: &str = "missing_since IS NULL AND (?1 = '' OR wing = ?1) AND (?2 = '' OR contractor_key = ?2) AND (?3 = '' OR district = ?3)";
     let results = db
         .batch(vec![
             query!(
                 db,
                 &format!(
-                    "SELECT {LIABILITY_COLUMNS} FROM liability_works
-                     WHERE missing_since IS NULL AND (?1 = '' OR wing = ?1) AND (?2 = '' OR contractor_key = ?2)
-                     ORDER BY (ends_on IS NULL OR ends_on < ?3), ends_on, name LIMIT 600"
+                    "SELECT {LIABILITY_COLUMNS} FROM liability_works WHERE {NARROWED}
+                     ORDER BY (ends_on IS NULL OR ends_on < ?4), ends_on, name LIMIT ?5 OFFSET ?6"
                 ),
-                wing,
-                contractor,
+                filter.wing,
+                filter.contractor,
+                filter.district,
                 today,
+                LIABILITY_PAGE_SIZE,
+                filter.page.saturating_sub(1) * LIABILITY_PAGE_SIZE,
             )?,
             query!(
                 db,
@@ -667,31 +825,45 @@ pub async fn liability(db: &D1Database, wing: &str, contractor: &str, today: &st
                         COALESCE(SUM(ends_on >= ?1 AND agreed_amount IS NOT NULL), 0) AS with_amount,
                         (SELECT last_scraped_at FROM sources WHERE id = 3) AS last_checked,
                         (SELECT MAX(id) FROM snapshots WHERE source_id = 3) AS snapshot_id
-                 FROM liability_works WHERE missing_since IS NULL",
+                 FROM liability_works WHERE missing_since IS NULL AND (?3 = '' OR district = ?3)",
                 today,
                 soon,
+                filter.district,
             )?,
-            db.prepare("SELECT wing AS v, COUNT(*) AS n FROM liability_works WHERE missing_since IS NULL GROUP BY 1 ORDER BY 2 DESC"),
+            query!(
+                db,
+                "SELECT wing AS v, COUNT(*) AS n FROM liability_works WHERE missing_since IS NULL AND (?1 = '' OR district = ?1)
+                 GROUP BY 1 ORDER BY 2 DESC",
+                filter.district,
+            )?,
+            db.prepare(
+                "SELECT COALESCE(district, '') AS v, COUNT(*) AS n FROM liability_works WHERE missing_since IS NULL GROUP BY 1 ORDER BY 1",
+            ),
             query!(
                 db,
                 "SELECT MAX(contractor) AS contractor, contractor_key, COUNT(*) AS n FROM liability_works
-                 WHERE missing_since IS NULL AND contractor_key IS NOT NULL AND ends_on >= ?1
+                 WHERE missing_since IS NULL AND contractor_key IS NOT NULL AND ends_on >= ?1 AND (?2 = '' OR district = ?2)
                  GROUP BY contractor_key ORDER BY n DESC, contractor LIMIT 12",
                 today,
+                filter.district,
             )?,
+            query!(db, &format!("SELECT COUNT(*) AS n FROM liability_works WHERE {NARROWED}"), filter.wing, filter.contractor, filter.district)?,
         ])
         .await?;
     Ok(Liability {
         rows: results[0].results()?,
         totals: results[1].results::<LiabilityTotals>()?.into_iter().next().unwrap_or_default(),
         wings: results[2].results()?,
-        contractors: results[3].results()?,
+        districts: results[3].results()?,
+        contractors: results[4].results()?,
+        matching: results[5].results::<Count>()?.into_iter().next().map(|row| row.n).unwrap_or(0),
     })
 }
 
 /// Every work on the liability list, including those that have dropped off it, for the open-data endpoints.
 #[derive(Debug, Deserialize)]
 pub struct LiabilityExportRow {
+    pub district: Option<String>,
     pub wing: String,
     pub name: String,
     pub contractor: Option<String>,
@@ -706,7 +878,7 @@ pub struct LiabilityExportRow {
 
 pub async fn liability_export(db: &D1Database) -> Result<Vec<LiabilityExportRow>> {
     db.prepare(
-        "SELECT wing, name, contractor, agreed_amount, starts_on, ends_on, division, subdivision, first_seen_on, missing_since
+        "SELECT district, wing, name, contractor, agreed_amount, starts_on, ends_on, division, subdivision, first_seen_on, missing_since
          FROM liability_works ORDER BY ends_on, name",
     )
     .all()
@@ -765,4 +937,158 @@ pub async fn status(db: &D1Database) -> Result<Status> {
         ])
         .await?;
     Ok(Status { sources: results[0].results()?, runs: results[1].results()?, views: results[2].results()? })
+}
+
+/// One contractor across the sources.
+#[derive(Debug, Deserialize)]
+pub struct ContractorRow {
+    pub key: String,
+    /// The name as PWD writes it, which has spaces; KIIFB's dashboard runs names together.
+    pub pwd_name: Option<String>,
+    pub kiifb_name: Option<String>,
+    pub kiifb_works: u32,
+    pub pwd_works: u32,
+    pub contract_value: Option<i64>,
+}
+
+const CONTRACTOR_ROWS: &str = "SELECT key, MAX(pwd_name) AS pwd_name, MAX(kiifb_name) AS kiifb_name, SUM(kiifb) AS kiifb_works,
+        SUM(pwd) AS pwd_works, SUM(value) AS contract_value
+    FROM (
+      SELECT contractor_key AS key, NULL AS pwd_name, contractor_name AS kiifb_name, 1 AS kiifb, 0 AS pwd, contract_amount AS value
+        FROM works WHERE contractor_key IS NOT NULL
+      UNION ALL
+      SELECT contractor_key, contractor, NULL, 0, 1, NULL FROM liability_works
+       WHERE contractor_key IS NOT NULL AND missing_since IS NULL
+    )";
+pub const CONTRACTOR_PAGE_SIZE: u32 = 60;
+
+/// Contractors by number of works, optionally narrowed by a search on the name.
+pub async fn contractors(db: &D1Database, q: &str, page: u32) -> Result<(Vec<ContractorRow>, u32)> {
+    let like = format!("%{}%", q.trim().replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+    const MATCHING: &str = "(?1 = '%%' OR pwd_name LIKE ?1 ESCAPE '\\' OR kiifb_name LIKE ?1 ESCAPE '\\' OR key LIKE ?1 ESCAPE '\\')";
+    let results = db
+        .batch(vec![
+            query!(
+                db,
+                &format!(
+                    "{CONTRACTOR_ROWS} WHERE {MATCHING} GROUP BY key
+                     ORDER BY SUM(kiifb) + SUM(pwd) DESC, key LIMIT ?2 OFFSET ?3"
+                ),
+                like,
+                CONTRACTOR_PAGE_SIZE,
+                page.saturating_sub(1) * CONTRACTOR_PAGE_SIZE,
+            )?,
+            query!(db, &format!("SELECT COUNT(*) AS n FROM (SELECT key FROM ({}) WHERE {MATCHING} GROUP BY key)", inner_contractors()), like)?,
+        ])
+        .await?;
+    Ok((results[0].results()?, results[1].results::<Count>()?.into_iter().next().map(|row| row.n).unwrap_or(0)))
+}
+
+/// The UNION inside `CONTRACTOR_ROWS`, for counting.
+fn inner_contractors() -> &'static str {
+    let from = CONTRACTOR_ROWS.find("SELECT contractor_key AS key").unwrap_or(0);
+    CONTRACTOR_ROWS[from..].trim_end().trim_end_matches(')')
+}
+
+/// A dashboard work by one contractor.
+#[derive(Debug, Deserialize)]
+pub struct ContractorWork {
+    pub code: String,
+    pub title_en: String,
+    pub road_name: Option<String>,
+    pub contractor_name: String,
+    pub contract_amount: Option<i64>,
+    pub paid_amount: Option<i64>,
+    pub scheduled_end: Option<String>,
+    pub status: Option<String>,
+    pub flag_count: u32,
+}
+
+pub struct ContractorPage {
+    pub works: Vec<ContractorWork>,
+    pub liability: Vec<LiabilityRow>,
+}
+
+pub async fn contractor(db: &D1Database, key: &str) -> Result<ContractorPage> {
+    let results = db
+        .batch(vec![
+            query!(
+                db,
+                "SELECT p.code, p.title_en, w.road_name, w.contractor_name, w.contract_amount, w.paid_amount, w.scheduled_end, w.status, p.flag_count
+                 FROM works w JOIN projects p ON p.id = w.project_id WHERE w.contractor_key = ?1
+                 ORDER BY COALESCE(w.contract_amount, 0) DESC LIMIT 200",
+                key,
+            )?,
+            query!(
+                db,
+                &format!("SELECT {LIABILITY_COLUMNS} FROM liability_works WHERE contractor_key = ?1 AND missing_since IS NULL ORDER BY ends_on LIMIT 300"),
+                key,
+            )?,
+        ])
+        .await?;
+    Ok(ContractorPage { works: results[0].results()?, liability: results[1].results()? })
+}
+
+/// One implementing agency across the two KIIFB sources.
+#[derive(Debug, Deserialize)]
+pub struct AgencyRow {
+    pub key: String,
+    pub name: String,
+    pub packages: u32,
+    pub flagged: u32,
+    pub funded: u32,
+    pub approved: Option<i64>,
+    pub paid: Option<i64>,
+    /// Status-page projects whose work table has not been read yet.
+    pub unread: u32,
+}
+
+const AGENCY_ROWS: &str = "SELECT key, MAX(name) AS name, SUM(packages) AS packages, SUM(flagged) AS flagged, SUM(funded) AS funded,
+        SUM(approved) AS approved, SUM(paid) AS paid, SUM(unread) AS unread
+    FROM (
+      SELECT agency_key AS key, MAX(executing_agency) AS name, COUNT(*) AS packages, SUM(flag_count > 0) AS flagged,
+             0 AS funded, NULL AS approved, NULL AS paid, 0 AS unread
+        FROM projects WHERE agency_key IS NOT NULL AND missing_since IS NULL GROUP BY 1
+      UNION ALL
+      SELECT agency_key, MAX(spv), 0, 0, COUNT(*), SUM(approved_amount), SUM(released_amount), SUM(detail_checked_at IS NULL)
+        FROM funding_projects WHERE agency_key IS NOT NULL AND missing_since IS NULL GROUP BY 1
+    ) GROUP BY key";
+
+pub async fn agencies(db: &D1Database) -> Result<Vec<AgencyRow>> {
+    db.prepare(format!("{AGENCY_ROWS} ORDER BY COALESCE(SUM(approved), 0) DESC, SUM(packages) DESC, key")).all().await?.results()
+}
+
+pub struct AgencyPage {
+    pub row: AgencyRow,
+    pub funded: Vec<FundingRow>,
+    pub packages: Vec<ListRow>,
+}
+
+pub async fn agency(db: &D1Database, key: &str) -> Result<Option<AgencyPage>> {
+    let results = db
+        .batch(vec![
+            query!(db, &format!("SELECT * FROM ({AGENCY_ROWS}) WHERE key = ?1"), key)?,
+            query!(
+                db,
+                &format!(
+                    "SELECT f.ref, f.name, f.department, f.spv, f.approved_amount, f.released_amount, f.work_count, f.flag_count,
+                            f.detail_checked_at IS NOT NULL AS read,
+                            (SELECT COUNT(*) FROM projects p WHERE {FUNDING_JOIN}) AS packages
+                     FROM funding_projects f WHERE f.agency_key = ?1 AND f.missing_since IS NULL
+                     ORDER BY COALESCE(f.approved_amount, 0) DESC, f.name LIMIT 60"
+                ),
+                key,
+            )?,
+            query!(
+                db,
+                &format!(
+                    "SELECT {LIST_COLUMNS} FROM projects p WHERE p.agency_key = ?1 AND p.missing_since IS NULL
+                     ORDER BY p.flag_count DESC, p.headline_amount DESC, p.code LIMIT 12"
+                ),
+                key,
+            )?,
+        ])
+        .await?;
+    let Some(row) = results[0].results::<AgencyRow>()?.into_iter().next() else { return Ok(None) };
+    Ok(Some(AgencyPage { row, funded: results[1].results()?, packages: results[2].results()? }))
 }

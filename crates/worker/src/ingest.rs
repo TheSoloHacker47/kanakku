@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 
 use kanakku_core::changes::diff;
+use kanakku_core::entity::{agency_key, contractor_key};
+use kanakku_core::names::constituency_district;
 use kanakku_core::flags::{self, FlagKind, History, OpenFlag};
 use kanakku_core::kiifb;
 use kanakku_core::model::Project;
@@ -73,7 +75,7 @@ pub async fn run(env: &Env, pushed: Option<Vec<u8>>) -> Result<Report> {
     let parsed = kiifb::parse(&page, &district).map_err(|e| Error::RustError(e.to_string()))?;
     if parsed.projects.is_empty() {
         // An empty district means the page changed shape, not that every project vanished.
-        return Err(Error::RustError(format!("no {district} projects in the KIIFB page; refusing to ingest")));
+        return Err(Error::RustError("no projects for the configured district in the KIIFB page; refusing to ingest".into()));
     }
 
     let mut hasher = Sha256::new();
@@ -177,14 +179,18 @@ async fn upsert_projects(
     source_changed: bool,
     report: &mut Report,
 ) -> Result<()> {
-    let existing: HashMap<String, ExistingRow> = db
-        .prepare("SELECT id, code, record_json, missing_since FROM projects")
-        .all()
-        .await?
-        .results::<ExistingRow>()?
-        .into_iter()
-        .map(|row| (row.code.clone(), row))
-        .collect();
+    // Read in pages: the whole state's records are several megabytes.
+    let mut existing: HashMap<String, ExistingRow> = HashMap::new();
+    let mut after = 0i64;
+    loop {
+        let page = query!(db, "SELECT id, code, record_json, missing_since FROM projects WHERE id > ?1 ORDER BY id LIMIT 800", after)?
+            .all()
+            .await?
+            .results::<ExistingRow>()?;
+        let Some(last) = page.last() else { break };
+        after = last.id;
+        existing.extend(page.into_iter().map(|row| (row.code.clone(), row)));
+    }
 
     let mut statements = Vec::new();
 
@@ -217,7 +223,7 @@ async fn upsert_projects(
                         )?);
                     }
                 }
-                for table in ["project_constituencies", "sites", "works"] {
+                for table in ["project_constituencies", "project_districts", "sites", "works"] {
                     statements.push(query!(db, &format!("DELETE FROM {table} WHERE project_id = ?1"), row.id)?);
                 }
                 statements.push(query!(db, "DELETE FROM projects_fts WHERE rowid = ?1", row.id)?);
@@ -229,8 +235,8 @@ async fn upsert_projects(
             db,
             "INSERT INTO projects (code, title_en, department, sector, executing_agency, district, estimated_amount, expenditure,
                                    works_amount, official_status, first_estimated_amount, first_seen_on, changed_on, snapshot_id, record_json,
-                                   sub_project_code, estimate_shared_by, headline_amount, stage)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?7, ?11, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+                                   sub_project_code, estimate_shared_by, headline_amount, stage, agency_key)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?7, ?11, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?19)
              ON CONFLICT(code) DO UPDATE SET
                title_en = excluded.title_en, department = excluded.department, sector = excluded.sector,
                executing_agency = excluded.executing_agency, district = excluded.district,
@@ -238,7 +244,7 @@ async fn upsert_projects(
                works_amount = excluded.works_amount, official_status = excluded.official_status,
                first_estimated_amount = COALESCE(projects.first_estimated_amount, excluded.estimated_amount),
                sub_project_code = excluded.sub_project_code, estimate_shared_by = excluded.estimate_shared_by,
-               headline_amount = excluded.headline_amount, stage = excluded.stage,
+               headline_amount = excluded.headline_amount, stage = excluded.stage, agency_key = excluded.agency_key,
                changed_on = CASE WHEN ?18 THEN excluded.changed_on ELSE projects.changed_on END,
                snapshot_id = CASE WHEN ?18 THEN excluded.snapshot_id ELSE projects.snapshot_id END,
                missing_since = NULL, record_json = excluded.record_json",
@@ -260,12 +266,14 @@ async fn upsert_projects(
             project.headline().map(|(amount, _)| amount).unwrap_or(0),
             project.status.as_deref().and_then(Stage::from_status).map(Stage::as_str),
             source_changed,
+            project.executing_agency.as_deref().map(agency_key).filter(|key| !key.is_empty()),
         )?);
         push_children(db, project, &mut statements)?;
     }
 
+    let listed: std::collections::HashSet<&str> = projects.iter().map(|p| p.code.as_str()).collect();
     for row in existing.values() {
-        if row.missing_since.is_none() && !projects.iter().any(|p| p.code == row.code) {
+        if row.missing_since.is_none() && !listed.contains(row.code.as_str()) {
             report.went_missing += 1;
             statements.push(query!(db, "UPDATE projects SET missing_since = ?1 WHERE id = ?2", today, row.id)?);
         }
@@ -282,13 +290,19 @@ fn push_children(db: &D1Database, project: &Project, statements: &mut Vec<D1Prep
     for c in &project.constituencies {
         statements.push(query!(
             db,
-            &format!("INSERT INTO project_constituencies (project_id, name, name_ml, mla_name, mla_name_ml) VALUES ({ID}, ?2, ?3, ?4, ?5)"),
+            &format!(
+                "INSERT INTO project_constituencies (project_id, name, name_ml, mla_name, mla_name_ml, district) VALUES ({ID}, ?2, ?3, ?4, ?5, ?6)"
+            ),
             code,
             c.name,
             c.name_ml,
             c.mla_name,
             c.mla_name_ml,
+            constituency_district(&c.name),
         )?);
+    }
+    for district in &project.districts {
+        statements.push(query!(db, &format!("INSERT INTO project_districts (project_id, district) VALUES ({ID}, ?2)"), code, district)?);
     }
     for site in &project.sites {
         statements.push(query!(db, &format!("INSERT INTO sites (project_id, lat, lng) VALUES ({ID}, ?2, ?3)"), code, site.lat, site.lng)?);
@@ -299,8 +313,8 @@ fn push_children(db: &D1Database, project: &Project, statements: &mut Vec<D1Prep
             &format!(
                 "INSERT INTO works (project_id, seq, work_ref, road_name, spv, contractor_name, as_amount, fs_amount, ts_amount,
                                     tender_amount, loa_amount, contract_amount, paid_amount, paid_contractor, scheduled_start,
-                                    scheduled_end, progress_note, physical_pct, financial_pct, status, lat, lng)
-                 VALUES ({ID}, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)"
+                                    scheduled_end, progress_note, physical_pct, financial_pct, status, lat, lng, contractor_key)
+                 VALUES ({ID}, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)"
             ),
             code,
             i + 1,
@@ -324,6 +338,7 @@ fn push_children(db: &D1Database, project: &Project, statements: &mut Vec<D1Prep
             w.status,
             w.lat,
             w.lng,
+            w.contractor.as_deref().map(contractor_key).filter(|key| !key.is_empty()),
         )?);
     }
 

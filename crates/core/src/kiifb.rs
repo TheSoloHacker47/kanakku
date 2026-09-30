@@ -12,13 +12,13 @@ use serde::de::{self, DeserializeOwned, Deserializer, IgnoredAny, SeqAccess, Vis
 use serde::Deserialize;
 
 use crate::model::{Constituency, Project, Site, Work};
-use crate::names::{canonical_constituency, constituency_ml};
+use crate::names::{canonical_constituency, canonical_district, constituency_ml, ALL_DISTRICTS};
 use crate::Date;
 
 pub const SOURCE_URL: &str = "https://gis.kiifb.org/";
 
 /// Bump when the parser reads the same page differently, so stored records are rebuilt.
-pub const PARSER_VERSION: u32 = 2;
+pub const PARSER_VERSION: u32 = 3;
 
 const RUPEES_PER_CRORE: f64 = 10_000_000.0;
 
@@ -41,7 +41,7 @@ impl std::error::Error for ParseError {}
 
 #[derive(Debug)]
 pub struct Parsed {
-    /// Projects in the requested district, sorted by code.
+    /// Projects in the requested district (or all of them), sorted by code.
     pub projects: Vec<Project>,
     /// Pins and works in the whole page, before the district filter.
     pub markers_total: usize,
@@ -50,7 +50,8 @@ pub struct Parsed {
     pub segments: [Range<usize>; 2],
 }
 
-/// Reads the dashboard page and returns the projects of one district.
+/// Reads the dashboard page and returns the projects of one district, or of every district
+/// when `district` is `ALL_DISTRICTS`.
 pub fn parse(page: &[u8], district: &str) -> Result<Parsed, ParseError> {
     let (markers, markers_range) = segment::<Vec<MarkerRaw>>(page, "MARKERS")?;
     let (transport, transport_range) = segment::<FeatureCollection>(page, "TRANSPORT_GEOJSON")?;
@@ -76,8 +77,9 @@ pub fn parse(page: &[u8], district: &str) -> Result<Parsed, ParseError> {
             continue;
         }
         let Some(code) = m.proj.code.clone() else { continue };
+        let filed_under = canonical_district(&m.d).unwrap_or("");
         let project = projects.entry(code.clone()).or_insert_with(|| {
-            let mut project = project_from_marker(code, &m, district);
+            let mut project = project_from_marker(code, &m, filed_under);
             match group_key(&m.proj).and_then(|key| groups.get(&key)) {
                 Some(group) => {
                     project.estimate_shared_by = group.codes.len() as u32;
@@ -99,6 +101,7 @@ pub fn parse(page: &[u8], district: &str) -> Result<Parsed, ParseError> {
                 },
             );
         }
+        add_district(project, filed_under);
         if let (Some(lat), Some(lng)) = (m.lat, m.lng) {
             let site = Site { lat, lng };
             if !project.sites.contains(&site) {
@@ -109,12 +112,19 @@ pub fn parse(page: &[u8], district: &str) -> Result<Parsed, ParseError> {
 
     for f in transport.features {
         let p = f.properties;
-        if !p.district.as_deref().is_some_and(|d| same_district(d, district)) {
+        // A work's district can be a list: "Kannur,Kozhikode".
+        let filed_under: Vec<&'static str> =
+            p.district.as_deref().unwrap_or("").split(',').filter_map(canonical_district).collect();
+        if district != ALL_DISTRICTS && !filed_under.iter().any(|d| same_district(d, district)) {
             continue;
         }
         let Some(code) = p.code.clone() else { continue };
         let mid = f.geometry.and_then(|g| g.coordinates.0);
-        let project = projects.entry(code.clone()).or_insert_with(|| project_from_work(code, &p, district));
+        let project =
+            projects.entry(code.clone()).or_insert_with(|| project_from_work(code, &p, filed_under.first().copied().unwrap_or("")));
+        for name in &filed_under {
+            add_district(project, name);
+        }
         if let Some(name) = p.lac.clone() {
             add_constituency(project, Constituency { name, ..Constituency::default() });
         }
@@ -166,7 +176,19 @@ fn segment<T: DeserializeOwned>(page: &[u8], name: &'static str) -> Result<(T, R
 }
 
 fn same_district(value: &str, district: &str) -> bool {
-    value.trim().eq_ignore_ascii_case(district)
+    district == ALL_DISTRICTS || value.trim().eq_ignore_ascii_case(district)
+}
+
+fn add_district(project: &mut Project, district: &str) {
+    if district.is_empty() {
+        return;
+    }
+    if project.district.is_empty() {
+        project.district = district.to_string();
+    }
+    if !project.districts.iter().any(|known| known == district) {
+        project.districts.push(district.to_string());
+    }
 }
 
 #[derive(Default)]

@@ -5,6 +5,7 @@ use kanakku_core::fmt::inr_short;
 use kanakku_core::i18n::{flag_label, Lang};
 use kanakku_core::model::{headline, Headline};
 use kanakku_core::names::{constituency_label, department_label};
+use worker::url::form_urlencoded::byte_serialize;
 use kanakku_core::stage::Stage;
 use kanakku_core::title::display_title;
 use kanakku_core::Date;
@@ -14,6 +15,7 @@ use crate::db::{ListRow, Point};
 use crate::http::{encode_segment, CSS};
 use crate::{district, icons};
 
+pub mod entities;
 pub mod funding;
 pub mod home;
 pub mod liability;
@@ -115,6 +117,8 @@ pub fn layout(page: &Page, body: Markup) -> String {
                                 li { a href=(href("/projects?flag=any")) { (lang.pick("സൂചനയുള്ള പദ്ധതികൾ", "Flagged projects")) } }
                                 li { a href=(href("/funding")) { (funding::title(lang)) } }
                                 li { a href=(href("/liability")) { (liability::title(lang)) } }
+                                li { a href=(href("/contractors")) { (lang.pick("കരാറുകാർ", "Contractors")) } }
+                                li { a href=(href("/agencies")) { (lang.pick("നിർവഹണ സ്ഥാപനങ്ങൾ", "Implementing agencies")) } }
                                 li { a href=(href("/map")) { (t.nav_map) } }
                                 li { a href=(href("/methodology")) { (t.nav_methodology) } }
                                 li { a href=(href("/data")) { (t.nav_data) } }
@@ -275,31 +279,68 @@ pub fn project_row(lang: Lang, row: &ListRow) -> Markup {
     }
 }
 
-/// The district drawn from its outline, with one dot per reported project location.
+/// A small map with one dot per reported project location: the whole state with its district
+/// borders when `scope` is empty, otherwise that one district.
 /// `here` marks locations to highlight instead of the flagged ones.
-pub fn dot_map(points: &[Point], here: &[(f64, f64)], label: &str, plain: bool) -> Markup {
-    let mut normal = String::new();
-    let mut flagged = String::new();
+pub fn dot_map(scope: &str, points: &[Point], here: &[(f64, f64)], label: &str, plain: bool) -> Markup {
+    let one = district::get(scope);
+    let frame = one.map(|d| &d.frame).unwrap_or(&district::STATE);
+    // Thousands of dots are drawn as two paths of zero-length strokes, not as thousands of elements.
+    let (mut normal, mut flagged) = (String::new(), String::new());
+    let mut drawn = std::collections::HashSet::new();
     for p in points {
-        let Some((x, y)) = district::project(p.lat, p.lng) else { continue };
-        if p.flagged > 0 && here.is_empty() {
-            flagged.push_str(&format!(r#"<circle class="f" cx="{x:.1}" cy="{y:.1}" r="4.2"/>"#));
-        } else {
-            normal.push_str(&format!(r#"<circle cx="{x:.1}" cy="{y:.1}" r="2"/>"#));
+        let Some((x, y)) = frame.project(p.lat, p.lng) else { continue };
+        let is_flagged = p.flagged > 0 && here.is_empty();
+        // Locations that land on the same spot are drawn once.
+        if !drawn.insert((x.round() as i32, y.round() as i32, is_flagged)) {
+            continue;
         }
+        let path = if is_flagged { &mut flagged } else { &mut normal };
+        path.push_str(&format!("M{x:.0} {y:.0}h0"));
     }
     let mut marks = String::new();
     for (lat, lng) in here {
-        if let Some((x, y)) = district::project(*lat, *lng) {
+        if let Some((x, y)) = frame.project(*lat, *lng) {
             marks.push_str(&format!(r#"<circle class="here" cx="{x:.1}" cy="{y:.1}" r="6"/>"#));
         }
     }
     html! {
-        svg.dots.plain[plain] viewBox=(format!("0 0 {} {}", district::WIDTH, district::HEIGHT)) role="img" aria-label=(label) {
-            path.land d=(district::OUTLINE) {}
-            (PreEscaped(normal))
-            (PreEscaped(flagged))
+        svg.dots.plain[plain].state[one.is_none()] viewBox=(format!("0 0 {} {}", frame.width, frame.height)) role="img" aria-label=(label) {
+            @match one {
+                Some(d) => path.land d=(d.outline) {},
+                None => { @for d in &district::DISTRICTS { path.land d=(d.in_state) {} } },
+            }
+            @if !normal.is_empty() { path.pts d=(normal) {} }
+            @if !flagged.is_empty() { path.pts.f d=(flagged) {} }
             (PreEscaped(marks))
+        }
+    }
+}
+
+/// Whether a location falls inside the box `dot_map` draws for a scope.
+pub fn on_dot_map(scope: &str, lat: f64, lng: f64) -> bool {
+    district::get(scope).map(|d| &d.frame).unwrap_or(&district::STATE).project(lat, lng).is_some()
+}
+
+/// `key=value` for a query string.
+pub fn pair(key: &str, value: &str) -> String {
+    format!("{key}={}", byte_serialize(value.as_bytes()).collect::<String>())
+}
+
+/// Previous and next links for a paged list. `href` builds the address of a page.
+pub fn pager(lang: Lang, page: u32, pages: u32, href: &dyn Fn(u32) -> String) -> Markup {
+    let t = lang.t();
+    html! {
+        @if pages > 1 {
+            nav.pager aria-label=(t.page) {
+                @if page > 1 {
+                    a.btn.ghost.sm rel="prev" href=(href(page - 1)) { (icon(icons::ARROW_LEFT)) (t.previous) }
+                } @else { span {} }
+                span.small.muted { (t.page) " " (page) " / " (pages) }
+                @if page < pages {
+                    a.btn.ghost.sm rel="next" href=(href(page + 1)) { (t.next) (icon(icons::ARROW_RIGHT)) }
+                } @else { span {} }
+            }
         }
     }
 }

@@ -1,15 +1,17 @@
 //! What KIIFB approved and what it has released: the list, one project, and the section shown on a map package's page.
 
+use kanakku_core::entity::{agency_display, agency_key};
+use kanakku_core::flags::FlagKind;
 use kanakku_core::fmt::{inr, inr_short, pct};
-use kanakku_core::i18n::Lang;
+use kanakku_core::i18n::{flag_explain, flag_label, flag_rule, Lang};
 use kanakku_core::kiifb_status::{self as status, Basis, FundedProject, FundedWork};
-use kanakku_core::names::department_label;
+use kanakku_core::names::{department_label, district_label, districts};
 use kanakku_core::title::display_title;
 use kanakku_core::Date;
 use maud::{html, Markup};
 
-use super::{big_amount, department_icon, en, icon, layout, meter, Nav, Page};
-use crate::db::{FundingLink, FundingPage, FundingRow, FundingSort, FundingTotals};
+use super::{big_amount, department_icon, en, icon, layout, meter, pager, pair, Nav, Page};
+use crate::db::{FundingLink, FundingListing, FundingPage, FundingRow, FundingSort, FundingTotals, FUNDING_PAGE_SIZE};
 use crate::http::encode_segment;
 use crate::icons;
 
@@ -17,20 +19,62 @@ pub fn title(lang: Lang) -> &'static str {
     lang.pick("അനുവദിച്ചതും നൽകിയതും", "Approved and paid")
 }
 
-pub fn list(lang: Lang, origin: &str, sort: FundingSort, rows: &[FundingRow], totals: &FundingTotals) -> String {
+/// What narrows the list, as it appears in the address.
+#[derive(Clone, Debug, Default)]
+pub struct Query {
+    pub sort: FundingSort,
+    pub district: String,
+    pub q: String,
+    pub flagged: bool,
+    pub page: u32,
+}
+
+impl Query {
+    fn href(&self, lang: Lang) -> String {
+        let mut parts = Vec::new();
+        if !self.q.is_empty() {
+            parts.push(pair("q", &self.q));
+        }
+        if !self.district.is_empty() {
+            parts.push(pair("district", &self.district));
+        }
+        if self.flagged {
+            parts.push("flag=1".to_string());
+        }
+        if self.sort != FundingSort::default() {
+            parts.push(format!("sort={}", self.sort.as_str()));
+        }
+        if self.page > 1 {
+            parts.push(format!("page={}", self.page));
+        }
+        let query = if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) };
+        format!("{}/funding{query}", lang.prefix())
+    }
+}
+
+pub fn list(lang: Lang, origin: &str, query: &Query, listing: &FundingListing) -> String {
     let t = lang.t();
     let p = lang.prefix();
+    let totals = &listing.totals;
+    let place = if query.district.is_empty() { lang.pick("കേരളം", "Kerala") } else { district_label(lang, &query.district) };
     let lead = match lang {
         Lang::Ml => format!(
-            "കിഫ്ബിയുടെ പ്രോജക്ട് സ്റ്റാറ്റസ് താളിൽ എറണാകുളത്തിന് കീഴിൽ {} പദ്ധതികളുണ്ട്. ഓരോന്നിനും കിഫ്ബി അനുവദിച്ച തുകയും ഇതുവരെ നൽകിയ തുകയും ഇവിടെ കാണാം.",
+            "കിഫ്ബിയുടെ പ്രോജക്ട് സ്റ്റാറ്റസ് താളിൽ {place} എന്നതിന് കീഴിൽ {} പദ്ധതികളുണ്ട്. ഓരോന്നിനും കിഫ്ബി അനുവദിച്ച തുകയും ഇതുവരെ നൽകിയ തുകയും ഇവിടെ കാണാം.",
             totals.total
         ),
         Lang::En => format!(
-            "KIIFB's project status page lists {} projects under Ernakulam. For each one, this is what KIIFB approved and what has been paid so far.",
+            "KIIFB's project status page lists {} projects under {place}. For each one, this is what KIIFB approved and what has been paid so far.",
             totals.total
         ),
     };
-    let path = if sort == FundingSort::default() { "/funding".to_string() } else { format!("/funding?sort={}", sort.as_str()) };
+    let pages = listing.matching.div_ceil(FUNDING_PAGE_SIZE).max(1);
+    let path = query.href(Lang::Ml);
+    let with = |change: &dyn Fn(&mut Query)| {
+        let mut next = query.clone();
+        next.page = 1;
+        change(&mut next);
+        next.href(lang)
+    };
 
     let body = html! {
         div.phead {
@@ -40,28 +84,85 @@ pub fn list(lang: Lang, origin: &str, sort: FundingSort, rows: &[FundingRow], to
                     (icon(icons::CHEVRON_RIGHT))
                     span { (title(lang)) }
                 }
-                h1.d2 { (title(lang)) }
+                h1.d2 { (title(lang)) @if !query.district.is_empty() { " · " (place) } }
                 p.lead { (lead) }
+                form.tools method="get" action=(format!("{p}/funding")) role="search" {
+                    div.find {
+                        div.field {
+                            (icon(icons::SEARCH))
+                            label.vh for="q" { (t.search_label) }
+                            input #q type="search" name="q" value=(query.q) placeholder=(lang.pick("പദ്ധതിയുടെയോ സ്ഥാപനത്തിന്റെയോ പേര്", "Project or agency name")) autocomplete="off" enterkeyhint="search";
+                        }
+                        button.btn type="submit" { (t.search_label) }
+                    }
+                    div.filters {
+                        div {
+                            label for="district" { (lang.pick("ജില്ല", "District")) }
+                            select #district name="district" {
+                                option value="" { (lang.pick("കേരളം മുഴുവൻ", "All of Kerala")) }
+                                @for name in districts() {
+                                    option value=(name) selected[name == query.district] { (district_label(lang, name)) }
+                                }
+                            }
+                        }
+                        div {
+                            label for="sort" { (lang.pick("ക്രമം", "Sort by")) }
+                            select #sort name="sort" {
+                                @for option in FundingSort::ALL {
+                                    option value=(option.as_str()) selected[option == query.sort] { (sort_label(lang, option)) }
+                                }
+                            }
+                        }
+                        div.go { button.btn type="submit" { (t.apply) } }
+                    }
+                }
             }
         }
         div.wrap {
-            (totals_panels(lang, totals, false))
-            p.note.sec {
-                (lang.pick(
-                    "ചില പദ്ധതികൾ പല ജില്ലകളിലായുള്ളവയാണ് (ഉദാ: സ്കൂൾ ക്ലസ്റ്ററുകൾ). അതിനാൽ ഈ ആകെത്തുക എറണാകുളത്തിന് മാത്രമുള്ളതല്ല.",
-                    "Some projects span several districts, school clusters for example. So these totals are not Ernakulam's alone.",
-                ))
+            (totals_panels(lang, totals, None))
+            @if query.district.is_empty() {
+                @if totals.unread > 0 { (unread_note(lang, totals.unread)) }
+            } @else {
+                p.note.sec {
+                    (lang.pick(
+                        "ചില പദ്ധതികൾ പല ജില്ലകളിലായുള്ളവയാണ് (ഉദാ: സ്കൂൾ ക്ലസ്റ്ററുകൾ). അതിനാൽ ഈ ആകെത്തുക ഈ ജില്ലയ്ക്ക് മാത്രമുള്ളതല്ല.",
+                        "Some projects span several districts, school clusters for example. So these totals are not this district's alone.",
+                    ))
+                }
+                @if totals.unread > 0 { (unread_note(lang, totals.unread)) }
             }
 
             div.result {
                 div.chips {
-                    @for option in FundingSort::ALL {
-                        @let href = if option == FundingSort::default() { format!("{p}/funding") } else { format!("{p}/funding?sort={}", option.as_str()) };
-                        a.chip.on[option == sort] href=(href) aria-current=[(option == sort).then_some("true")] { (sort_label(lang, option)) }
+                    @if !query.q.is_empty() {
+                        a.chip href=(with(&|next| next.q.clear())) { "“" (query.q) "”" (icon(icons::X)) }
+                    }
+                    @if !query.district.is_empty() {
+                        a.chip href=(with(&|next| next.district.clear())) { (place) (icon(icons::X)) }
+                    }
+                    @if totals.flagged > 0 || query.flagged {
+                        a.chip.on[query.flagged] href=(with(&|next| next.flagged = !query.flagged)) {
+                            (icon(icons::FLAG))
+                            @match lang { Lang::Ml => { (totals.flagged) " എണ്ണത്തിന് സൂചന" }, Lang::En => { (totals.flagged) " flagged" } }
+                        }
+                    }
+                }
+                span.small.muted {
+                    @match lang {
+                        Lang::Ml => { (listing.matching) " പദ്ധതികൾ · " (sort_label(lang, query.sort)) },
+                        Lang::En => { (listing.matching) " projects · " (sort_label(lang, query.sort)) },
                     }
                 }
             }
-            ol.rows { @for row in rows { (list_row(lang, row)) } }
+            @if listing.rows.is_empty() {
+                div.empty {
+                    p { b { (t.no_results) } }
+                    p.actions { a.btn.ghost href=(format!("{p}/funding")) { (lang.pick("എല്ലാം കാണുക", "Show all")) } }
+                }
+            } @else {
+                ol.rows { @for row in &listing.rows { (list_row(lang, row)) } }
+                (pager(lang, query.page, pages, &|n| with(&|next| next.page = n)))
+            }
         }
     };
     layout(
@@ -79,12 +180,23 @@ pub fn list(lang: Lang, origin: &str, sort: FundingSort, rows: &[FundingRow], to
     )
 }
 
-/// The three headline blocks: approved, released, and how many projects.
-pub fn totals_panels(lang: Lang, totals: &FundingTotals, on_home: bool) -> Markup {
+fn unread_note(lang: Lang, unread: u32) -> Markup {
+    html! {
+        p.note.sec {
+            @match lang {
+                Lang::Ml => { (unread) " പദ്ധതികളുടെ പ്രവൃത്തിപ്പട്ടിക ഇതുവരെ വായിച്ചിട്ടില്ല; ഓരോ രാത്രിയും കുറച്ചെണ്ണം വീതം വായിക്കുന്നു. അവയ്ക്ക് കാണിക്കുന്ന “നൽകിയ തുക” കിഫ്ബിയുടെ പട്ടികയിലേതാണ്; പല ജില്ലകളിലായുള്ള പദ്ധതികൾക്ക് അത് യഥാർത്ഥത്തേക്കാൾ കൂടുതലായിരിക്കാം." },
+                Lang::En => { "The work tables of " (unread) " projects have not been read yet; a batch is read each night. Until then their “paid” figure is the one on KIIFB's list, which overstates it for projects that span districts." },
+            }
+        }
+    }
+}
+
+/// The three headline blocks: approved, paid, and how many projects. `more` links to the full list.
+pub fn totals_panels(lang: Lang, totals: &FundingTotals, more: Option<&str>) -> Markup {
     let approved = totals.approved.unwrap_or(0);
     let released = totals.released.unwrap_or(0);
     html! {
-        div.panels.flat[on_home] {
+        div.panels.flat[more.is_some()] {
             div.panel.g {
                 h2 { (lang.pick("കിഫ്ബി അനുവദിച്ചത്", "Approved by KIIFB")) }
                 p.num { (big_amount(approved, lang)) }
@@ -93,9 +205,19 @@ pub fn totals_panels(lang: Lang, totals: &FundingTotals, on_home: bool) -> Marku
             div.panel {
                 h2 { (lang.pick("ഇതുവരെ നൽകിയത്", "Paid so far")) }
                 p.num { (big_amount(released, lang)) }
-                @if approved > 0 {
+                @if approved > 0 && released <= approved {
                     p.small { (share_of_approved(lang, released, approved)) }
                     (meter(released as f64 / approved as f64, ""))
+                } @else {
+                    p.small { (inr(released)) }
+                }
+                @if totals.unread > 0 {
+                    p.small.muted {
+                        @match lang {
+                            Lang::Ml => { "താൽക്കാലികം: " (totals.unread) " പദ്ധതികളുടെ പ്രവൃത്തിപ്പട്ടിക ഇനിയും വായിക്കാനുണ്ട്." },
+                            Lang::En => { "Provisional: the work tables of " (totals.unread) " projects are still to be read." },
+                        }
+                    }
                 }
             }
             div.panel {
@@ -107,15 +229,15 @@ pub fn totals_panels(lang: Lang, totals: &FundingTotals, on_home: bool) -> Marku
                         Lang::En => { (totals.works) " works · " (totals.evaluating) " projects still under evaluation" },
                     }
                 }
-                @if on_home {
-                    p { a.more href=(format!("{}/funding", lang.prefix())) { (lang.pick("എല്ലാം കാണുക", "See them all")) (icon(icons::ARROW_RIGHT)) } }
+                @if let Some(href) = more {
+                    p { a.more href=(href) { (lang.pick("എല്ലാം കാണുക", "See them all")) (icon(icons::ARROW_RIGHT)) } }
                 }
             }
         }
     }
 }
 
-fn list_row(lang: Lang, row: &FundingRow) -> Markup {
+pub fn list_row(lang: Lang, row: &FundingRow) -> Markup {
     html! {
         li {
             a.row href=(format!("{}/f/{}", lang.prefix(), encode_segment(&row.reference))) {
@@ -123,7 +245,7 @@ fn list_row(lang: Lang, row: &FundingRow) -> Markup {
                 span.t lang="en" { (display_title(&row.name)) }
                 span.m {
                     @if let Some(department) = &row.department { (department_label(lang, department)) }
-                    @if let Some(spv) = &row.spv { " · " (en(&display_title(spv))) }
+                    @if let Some(spv) = &row.spv { " · " (en(&agency_display(spv))) }
                 }
                 span.amt {
                     @match (row.approved_amount, row.released_amount) {
@@ -143,6 +265,9 @@ fn list_row(lang: Lang, row: &FundingRow) -> Markup {
                     span.bar { (meter(released as f64 / approved as f64, "")) }
                 }
                 span.tags {
+                    @if row.flag_count > 0 {
+                        span.badge.flag { (icon(icons::FLAG)) (flag_label(lang, FlagKind::PaidAboveApproval)) }
+                    }
                     @if row.work_count > 0 {
                         span.badge {
                             @match lang {
@@ -151,14 +276,7 @@ fn list_row(lang: Lang, row: &FundingRow) -> Markup {
                             }
                         }
                     }
-                    @if row.over_paid_works > 0 {
-                        span.badge {
-                            @match lang {
-                                Lang::Ml => { (row.over_paid_works) " പ്രവൃത്തിക്ക് അനുവദിച്ചതിലും കൂടുതൽ നൽകി" },
-                                Lang::En => { (row.over_paid_works) " paid above approval" },
-                            }
-                        }
-                    }
+                    @if row.read == 0 { span.badge { (lang.pick("പ്രവൃത്തികൾ വായിച്ചിട്ടില്ല", "Works not read yet")) } }
                     @if row.packages > 0 { span.badge { (icon(icons::MAP_PIN)) (lang.pick("ഭൂപടത്തിലുണ്ട്", "On the map")) } }
                 }
             }
@@ -250,6 +368,36 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
 
             (source_notes(lang, project))
 
+            @if !data.flags.is_empty() {
+                section.sec #flags {
+                    h2.h { (t.flags) }
+                    @for flag in &data.flags {
+                        @if let Some(kind) = FlagKind::parse(&flag.kind) {
+                            @let value: serde_json::Value = serde_json::from_str(&flag.value_json).unwrap_or_default();
+                            div.flagbox.off[flag.status != "open"] {
+                                (icon(icons::FLAG))
+                                h3 {
+                                    (flag_label(lang, kind))
+                                    @if let Some(work) = &flag.work_ref { " · " (en(&display_title(work))) }
+                                }
+                                p { (flag_explain(lang, kind, &value)) }
+                                p.small {
+                                    (lang.pick("നിയമം", "Rule")) ": " (flag_rule(lang, kind)) " "
+                                    a href=(format!("{p}/methodology#rules")) { (t.rule_version) " " (flag.rule_version) }
+                                    @if let Some(cleared) = flag.cleared_on.as_deref().and_then(Date::parse_iso) {
+                                        " · "
+                                        @match lang {
+                                            Lang::Ml => { (cleared.to_dmy()) "-ന് ഈ സൂചന നീങ്ങി" },
+                                            Lang::En => { "Cleared on " (cleared.to_dmy()) },
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             @if !project.works.is_empty() {
                 section.sec {
                     h2.h { (lang.pick("പ്രവൃത്തികൾ", "Works")) " (" (project.works.len()) ")" }
@@ -276,7 +424,10 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
                             div { dt { (t.department) } dd { (department_label(lang, department)) } }
                         }
                         @if let Some(spv) = &project.spv {
-                            div { dt { (lang.pick("നിർവഹണ സ്ഥാപനം (SPV)", "Implementing agency (SPV)")) } dd lang="en" { (spv) } }
+                            div {
+                                dt { (lang.pick("നിർവഹണ സ്ഥാപനം (SPV)", "Implementing agency (SPV)")) }
+                                dd lang="en" { a href=(format!("{p}/a/{}", agency_key(spv))) { (agency_display(spv)) } }
+                            }
                         }
                         @if let Some(main) = &project.main_project {
                             div { dt { (lang.pick("ഏത് പ്രഖ്യാപനത്തിന് കീഴിൽ", "Announced under")) } dd lang="en" { (main) } }
@@ -407,16 +558,6 @@ fn paid_line(lang: Lang, w: &FundedWork) -> Markup {
                 @match w.approved {
                     Some(approved) => { b { (inr_short(approved, lang)) } span { (lang.pick("അനുവദിച്ചത്", "approved")) } },
                     None => { b.none { "—" } span { (lang.pick("അനുവദിച്ചത്", "approved")) } },
-                }
-            }
-        }
-        @if w.paid_exceeds_approved() {
-            p.small {
-                @if let (Some(paid), Some(approved)) = (w.paid, w.approved) {
-                    @match lang {
-                        Lang::Ml => { "ഈ പ്രവൃത്തിക്ക് അനുവദിച്ചതിനേക്കാൾ " (inr(paid - approved)) " കൂടുതൽ നൽകിയതായി കിഫ്ബി രേഖപ്പെടുത്തുന്നു. കാരണം ഉറവിടത്തിൽ പറയുന്നില്ല." },
-                        Lang::En => { "KIIFB records " (inr(paid - approved)) " more paid than approved for this work. The source gives no reason." },
-                    }
                 }
             }
         }

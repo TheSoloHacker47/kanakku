@@ -12,6 +12,8 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::entity;
+use crate::names::canonical_district;
 use crate::Date;
 
 pub const SOURCE_URL: &str = "https://www.pwd.kerala.gov.in/IMF_website/Projects/wings_list.php";
@@ -57,8 +59,19 @@ impl LiabilityWork {
             self.wing,
             self.name,
             self.starts_on.map(Date::to_iso).unwrap_or_default(),
-            self.contractor.as_deref().map(contractor_key).unwrap_or_default()
+            self.contractor.as_deref().map(identity_key).unwrap_or_default()
         )
+    }
+
+    /// The contractor's key, shared with the other sources.
+    pub fn contractor_key(&self) -> Option<String> {
+        self.contractor.as_deref().map(entity::contractor_key).filter(|key| !key.is_empty())
+    }
+
+    /// The district of the PWD office that handles the work, from the names of its subdivision
+    /// and division. A division can cover works outside its own district.
+    pub fn office_district(&self) -> Option<&'static str> {
+        self.subdivision.as_deref().and_then(district_of).or_else(|| self.division.as_deref().and_then(district_of))
     }
 
     /// Days of liability left on `today`; negative once it has ended.
@@ -103,16 +116,6 @@ pub fn divisions(page: &str) -> Vec<String> {
     out
 }
 
-/// Whether a division serves the district. PWD names divisions after their town.
-pub fn in_district(division: &str, district: &str) -> bool {
-    let towns: &[&str] = match district.trim().to_ascii_lowercase().as_str() {
-        "ernakulam" => &["ernakulam", "muvattupuzha", "muvatupuzha", "aluva"],
-        _ => return division.to_ascii_lowercase().contains(&district.trim().to_ascii_lowercase()),
-    };
-    let division = division.to_ascii_lowercase();
-    towns.iter().any(|town| division.contains(town))
-}
-
 /// Reads one page of a wing's list.
 pub fn parse_listing(page: &str, wing: &str) -> Result<Listing, ParseError> {
     let Some(start) = page.find("id=\"dispDMSresult\"") else {
@@ -153,8 +156,9 @@ pub fn parse_listing(page: &str, wing: &str) -> Result<Listing, ParseError> {
     Ok(Listing { works, last_page })
 }
 
-/// A key that treats "Shri. P.V. Stephan" and "P V STEPHAN" as the same contractor.
-pub fn contractor_key(name: &str) -> String {
+/// The contractor part of a work's identity. Kept as first written: changing it would give
+/// every stored work a new identity. Grouping across sources uses `entity::contractor_key`.
+fn identity_key(name: &str) -> String {
     const TITLES: [&str; 9] = ["shri", "sri", "smt", "mr", "mrs", "ms", "m/s", "m/s.", "messrs"];
     name.to_lowercase()
         .split(|c: char| c.is_whitespace() || c == '.' || c == ',')
@@ -163,36 +167,39 @@ pub fn contractor_key(name: &str) -> String {
         .collect()
 }
 
-/// A contractor's name for display: titles dropped, shouting capitals calmed, initials kept.
-pub fn contractor_display(name: &str) -> String {
-    const TITLES: [&str; 6] = ["shri", "sri", "smt", "mr", "mrs", "ms"];
-    let words: Vec<&str> = name
-        .split_whitespace()
-        .filter(|word| !TITLES.contains(&word.trim_end_matches('.').to_lowercase().as_str()))
-        .collect();
-    let letters = words.iter().flat_map(|w| w.chars()).filter(|c| c.is_alphabetic()).count();
-    let capitals = words.iter().flat_map(|w| w.chars()).filter(|c| c.is_uppercase()).count();
-    let shouting = letters > 3 && capitals * 10 >= letters * 8;
-    words
-        .iter()
-        .map(|word| {
-            if !shouting || word.chars().filter(|c| c.is_alphabetic()).count() <= 2 || word.eq_ignore_ascii_case("M/s") {
-                return word.to_string();
-            }
-            let mut out = String::with_capacity(word.len());
-            let mut first = true;
-            for c in word.chars() {
-                if first && c.is_alphabetic() {
-                    out.extend(c.to_uppercase());
-                    first = false;
-                } else {
-                    out.extend(c.to_lowercase());
-                }
-            }
-            out
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+/// Towns PWD names offices after, and the district each is in.
+const TOWNS: &[(&str, &str)] = &[
+    ("muvattupuzha", "Ernakulam"), ("muvatupuzha", "Ernakulam"), ("aluva", "Ernakulam"), ("paravur", "Ernakulam"),
+    ("perumbavoor", "Ernakulam"), ("kothamangalam", "Ernakulam"), ("piravom", "Ernakulam"), ("kochi", "Ernakulam"),
+    ("thalassery", "Kannur"), ("taliparamba", "Kannur"), ("iritty", "Kannur"), ("payyannur", "Kannur"),
+    ("manjeri", "Malappuram"), ("tirur", "Malappuram"), ("perinthalmanna", "Malappuram"), ("nilambur", "Malappuram"), ("ponnani", "Malappuram"),
+    ("kodungallur", "Thrissur"), ("irinjalakuda", "Thrissur"), ("chalakudy", "Thrissur"), ("chalakkudy", "Thrissur"), ("kunnamkulam", "Thrissur"),
+    ("shornur", "Palakkad"), ("shoranur", "Palakkad"), ("ottapalam", "Palakkad"), ("ottappalam", "Palakkad"), ("chittur", "Palakkad"), ("mannarkkad", "Palakkad"), ("alathur", "Palakkad"),
+    ("vadakara", "Kozhikode"), ("vatakara", "Kozhikode"), ("koyilandy", "Kozhikode"), ("thamarassery", "Kozhikode"),
+    ("kalpetta", "Wayanad"), ("mananthavady", "Wayanad"), ("bathery", "Wayanad"),
+    ("kanhangad", "Kasaragod"),
+    ("pala", "Kottayam"), ("kanjirappally", "Kottayam"), ("changanassery", "Kottayam"), ("vaikom", "Kottayam"), ("gandhinagar", "Kottayam"),
+    ("thodupuzha", "Idukki"), ("kattappana", "Idukki"), ("devikulam", "Idukki"), ("peerumade", "Idukki"),
+    ("chengannur", "Alappuzha"), ("haripad", "Alappuzha"), ("cherthala", "Alappuzha"), ("cherthla", "Alappuzha"), ("mavelikkara", "Alappuzha"), ("kayamkulam", "Alappuzha"), ("kuttanad", "Alappuzha"),
+    ("adoor", "Pathanamthitta"), ("thiruvalla", "Pathanamthitta"), ("ranni", "Pathanamthitta"), ("konni", "Pathanamthitta"),
+    ("punalur", "Kollam"), ("kottarakkara", "Kollam"), ("karunagappally", "Kollam"), ("karunagapally", "Kollam"),
+    ("neyyattinkara", "Thiruvananthapuram"), ("attingal", "Thiruvananthapuram"), ("nedumangad", "Thiruvananthapuram"), ("kazhakuttom", "Thiruvananthapuram"),
+    ("secretariate", "Thiruvananthapuram"), ("legislative complex", "Thiruvananthapuram"), ("klc", "Thiruvananthapuram"), ("vazhuthacaud", "Thiruvananthapuram"),
+];
+
+/// The district an office name points to: a district's own name or spelling, or a town in it.
+pub fn district_of(office: &str) -> Option<&'static str> {
+    let lower = office.to_lowercase();
+    let words: Vec<&str> = lower.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
+    if let Some(district) = words.iter().find_map(|word| canonical_district(word)) {
+        return Some(district);
+    }
+    TOWNS.iter().find(|(town, _)| if town.contains(' ') { lower.contains(town) } else { words.contains(town) }).map(|(_, district)| *district)
+}
+
+/// Whether an office serves the district, or any district when `district` stands for all.
+pub fn in_district(office: &str, district: &str) -> bool {
+    district == crate::names::ALL_DISTRICTS || district_of(office).is_some_and(|d| d.eq_ignore_ascii_case(district.trim()))
 }
 
 /// A work's name without PWD's filing prefix and suffix:
@@ -366,6 +373,7 @@ mod tests {
         assert!(mine.iter().any(|d| d.contains("Muvatupuzha")));
         assert!(!mine.iter().any(|d| d.contains("Thrissur")));
         assert!(in_district("Roads Division Thrissur", "Thrissur"));
+        assert!(in_district("Roads Division Thrissur", crate::names::ALL_DISTRICTS));
     }
 
     #[test]
@@ -386,15 +394,39 @@ mod tests {
     }
 
     #[test]
-    fn contractor_names_group_and_display() {
-        assert_eq!(contractor_key("Shri. P.V. Stephan"), contractor_key("P V STEPHAN"));
-        assert_eq!(contractor_key("M/s Chemparaky LCS"), "chemparakylcs");
-        assert_ne!(contractor_key("P V Stephan"), contractor_key("P V Stephen"));
+    fn offices_resolve_to_districts() {
+        assert_eq!(district_of("Roads Division Muvatupuzha"), Some("Ernakulam"));
+        assert_eq!(district_of("Buildings Division,Kasaragod"), Some("Kasaragod"));
+        assert_eq!(district_of("KRFB-PMU Division Kasragod"), Some("Kasaragod"));
+        assert_eq!(district_of("Electrical Division TVM"), Some("Thiruvananthapuram"));
+        assert_eq!(district_of("Buildings Division Thalassery"), Some("Kannur"));
+        assert_eq!(district_of("Roads Division Manjeri"), Some("Malappuram"));
+        assert_eq!(district_of("Buildings Sub Division Shornur"), Some("Palakkad"));
+        assert_eq!(district_of("Special Buildings Sub Division, Kottayam"), Some("Kottayam"));
+        assert_eq!(district_of("Pala"), Some("Kottayam"));
+        assert_eq!(district_of("Palakkad"), Some("Palakkad"), "a town name inside a longer word is not a match");
+        assert_eq!(district_of("Legislative Complex Construction Division "), Some("Thiruvananthapuram"));
+        assert_eq!(district_of("Central Stores"), None);
 
-        assert_eq!(contractor_display("P V STEPHAN"), "P V Stephan");
-        assert_eq!(contractor_display("Shri. A. ABDUL HAKKIM"), "A. Abdul Hakkim");
-        assert_eq!(contractor_display("Baiju A A"), "Baiju A A");
-        assert_eq!(contractor_display("M/s Chemparaky LCS"), "M/s Chemparaky LCS");
+        let work = LiabilityWork {
+            division: Some("Bridges Division Ernakulam".into()),
+            subdivision: Some("Bridges Sub Division Thrissur".into()),
+            ..LiabilityWork::default()
+        };
+        assert_eq!(work.office_district(), Some("Thrissur"), "the subdivision is nearer the work than the division");
+    }
+
+    #[test]
+    fn identity_does_not_change_with_the_shared_contractor_key() {
+        let work = LiabilityWork {
+            wing: "Roads".into(),
+            name: "Road".into(),
+            contractor: Some("M/s Uralungal Society Ltd".into()),
+            starts_on: Date::parse_iso("2022-01-27"),
+            ..LiabilityWork::default()
+        };
+        assert_eq!(work.identity(), "Roads|Road|2022-01-27|uralungalsocietyltd");
+        assert_eq!(work.contractor_key().as_deref(), Some("uralungalsociety"));
     }
 
     #[test]
