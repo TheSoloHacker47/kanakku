@@ -87,6 +87,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                 meta property="og:image:height" content="630";
                 meta name="twitter:card" content="summary_large_image";
                 style { (PreEscaped(CSS)) }
+                script defer src="/register.js" {}
                 (page.head)
             }
             body {

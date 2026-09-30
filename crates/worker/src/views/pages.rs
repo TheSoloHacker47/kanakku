@@ -363,7 +363,7 @@ fn view_kind_label(lang: Lang, kind: &str) -> String {
         "home" => lang.pick("മുൻതാൾ", "Front page"),
         "projects" => lang.pick("പദ്ധതി പട്ടിക", "Project list"),
         "project" => lang.pick("ഒരു പദ്ധതി", "A project"),
-        "funding" => lang.pick("അനുവദിച്ചതും നൽകിയതും", "Approved and released"),
+        "funding" => lang.pick("അനുവദിച്ചതും നൽകിയതും", "Approved and paid"),
         "funding_project" => lang.pick("ഒരു പദ്ധതിയുടെ തുകകൾ", "A project's payments"),
         "liability" => lang.pick("അറ്റകുറ്റപ്പണി ബാധ്യത", "Repair liability"),
         "contractors" | "contractor" => lang.pick("കരാറുകാർ", "Contractors"),
@@ -376,6 +376,25 @@ fn view_kind_label(lang: Lang, kind: &str) -> String {
         other => return other.to_string(),
     }
     .to_string()
+}
+
+/// Shown by the offline worker when a page that was never opened is asked for without a connection.
+pub fn offline(lang: Lang, origin: &str) -> String {
+    let title = lang.pick("ഇപ്പോൾ ഇന്റർനെറ്റ് ഇല്ല", "You are offline");
+    let lead = lang.pick(
+        "ഈ താൾ ഇതുവരെ ഈ ഉപകരണത്തിൽ തുറന്നിട്ടില്ല, അതിനാൽ ഇപ്പോൾ കാണിക്കാനാവില്ല. മുമ്പ് തുറന്ന താളുകൾ ഇന്റർനെറ്റ് ഇല്ലാതെയും വായിക്കാം.",
+        "This page has not been opened on this device before, so it cannot be shown now. Pages you have already opened can still be read without a connection.",
+    );
+    let body = html! {
+        (head(lang, title, lead))
+        div.wrap {
+            p.actions.sec {
+                a.btn href=(format!("{}/", lang.prefix())) { (lang.t().site_name) }
+                a.btn.ghost href=(format!("{}/projects", lang.prefix())) { (lang.t().nav_projects) }
+            }
+        }
+    };
+    layout(&page(lang, title, lead, "/offline", origin, Nav::None, None), body)
 }
 
 pub fn not_found(lang: Lang, origin: &str) -> String {

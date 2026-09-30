@@ -167,6 +167,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             http::html(views::entities::contractors(lang, origin, &q, page, &rows, matching), 200, Policy::Page)
         }
         "/agencies" => http::html(views::entities::agencies(lang, origin, &db::agencies(&db).await?), 200, Policy::Page),
+        "/offline" => http::html(views::pages::offline(lang, origin), 200, Policy::Page),
         "/status" => http::html(views::pages::status(lang, origin, &db::status(&db).await?, worker::Date::now().as_millis() as i64), 200, Policy::Page),
         "/api/v1/status" => {
             let status = db::status(&db).await?;

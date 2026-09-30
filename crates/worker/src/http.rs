@@ -13,7 +13,7 @@ const CACHE_CONTROL: &str = "public, max-age=60, s-maxage=300, stale-while-reval
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Policy {
-    /// No scripts at all; only the inlined stylesheet.
+    /// The inlined stylesheet, and one script of our own that registers the offline worker.
     Page,
     /// The map page additionally runs Leaflet from our own origin.
     Map,
@@ -24,8 +24,8 @@ fn csp(policy: Policy) -> String {
     let style = STYLE_HASH.get_or_init(|| base64(&Sha256::digest(CSS.as_bytes())));
     let base = "default-src 'none'; img-src 'self' data: blob:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
     match policy {
-        Policy::Page => format!("{base}; style-src 'sha256-{style}'"),
-        Policy::Map => format!("{base}; style-src 'self' 'sha256-{style}'; script-src 'self'; connect-src 'self'"),
+        Policy::Page => format!("{base}; style-src 'sha256-{style}'; script-src 'self'; worker-src 'self'"),
+        Policy::Map => format!("{base}; style-src 'self' 'sha256-{style}'; script-src 'self'; connect-src 'self'; worker-src 'self'"),
     }
 }
 
