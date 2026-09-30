@@ -13,7 +13,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "kanakku"
-database_id = "00000000-0000-0000-0000-000000000000" # replaced at deploy
+database_id = "1a259aed-86ec-48d3-a120-9500c88f9f09"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
