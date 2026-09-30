@@ -8,15 +8,19 @@
 
   var map = L.map(el, { minZoom: 8, maxZoom: 16, maxBounds: [[8, 74.5], [13, 78]] }).setView([10.02, 76.5], 10);
   map.attributionControl.setPrefix(false);
-  protomapsL
-    .leafletLayer({
-      url: "/tiles/ernakulam.pmtiles",
-      flavor: dark ? "dark" : "light",
-      lang: el.dataset.lang,
-      maxDataZoom: 13,
-      attribution: "© OpenStreetMap · Protomaps",
-    })
-    .addTo(map);
+  // Without the basemap file the pins still show, on a plain ground.
+  fetch("/tiles/ernakulam.pmtiles", { method: "HEAD" }).then(function (r) {
+    if (!r.ok) return;
+    protomapsL
+      .leafletLayer({
+        url: "/tiles/ernakulam.pmtiles",
+        flavor: dark ? "dark" : "light",
+        lang: el.dataset.lang,
+        maxDataZoom: 13,
+        attribution: "© OpenStreetMap · Protomaps",
+      })
+      .addTo(map);
+  });
 
   var rupees = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 

@@ -145,6 +145,12 @@ async fn snapshot(env: &Env, db: &worker::d1::D1Database, id: i64) -> Result<Res
 /// Serves byte ranges of the basemap archive. The map library reads a few kilobytes at a time.
 async fn tiles(req: &Request, env: &Env) -> Result<Response> {
     let bucket = env.bucket("BUCKET")?;
+    if req.method() == Method::Head {
+        return match bucket.head(TILES_KEY).await? {
+            Some(_) => Ok(Response::empty()?.with_headers(Headers::from_iter([("Accept-Ranges", "bytes")]))),
+            None => Response::error("Basemap not uploaded", 404),
+        };
+    }
     let range = req.headers().get("Range")?.and_then(|h| parse_range(&h));
     let get = bucket.get(TILES_KEY);
     let get = match range {
