@@ -5,8 +5,10 @@ use kanakku_core::i18n::{flag_label, flag_rule, Lang};
 use kanakku_core::stage::Stage;
 use maud::{html, Markup};
 
-use super::{icon, layout, Nav, Page};
+use super::{en, icon, layout, Nav, Page};
+use crate::db::Status;
 use crate::icons;
+use crate::runs::source_name;
 
 fn head(lang: Lang, title: &str, lead: &str) -> Markup {
     html! {
@@ -97,8 +99,8 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                 )) }
 
                 p { (lang.pick(
-                    "കിഫ്ബിയുടെ പ്രോജക്ട് സ്റ്റാറ്റസ് താളും (kiifb.org/prjStatus.jsp) ദിവസവും വായിക്കുന്നു. അതിൽ ഓരോ പദ്ധതിക്കും അനുവദിച്ച തുകയും നൽകിയ തുകയും, ഓരോ പ്രവൃത്തിക്കും അനുവദിച്ചതും നൽകിയതും ഉണ്ട്. തുക മാറിയ പദ്ധതികളുടെ പ്രവൃത്തിപ്പട്ടിക അന്നുതന്നെ വീണ്ടും വായിക്കും; മറ്റുള്ളവ ഊഴമനുസരിച്ച്, ഓരോ രാത്രിയും കുറച്ചെണ്ണം വീതം.",
-                    "We also read KIIFB's project status page (kiifb.org/prjStatus.jsp) once a day. It gives, for each project, the amount approved and the amount released, and the same for each work. When a project's figures move we re-read its work table the same night; the rest are re-read in turn, a few each night.",
+                    "കിഫ്ബിയുടെ പ്രോജക്ട് സ്റ്റാറ്റസ് താളും (kiifb.org/prjStatus.jsp) ദിവസവും വായിക്കുന്നു. അതിൽ ഓരോ പദ്ധതിക്കും അനുവദിച്ച തുകയും നൽകിയ തുകയും, ഓരോ പ്രവൃത്തിക്കും അനുവദിച്ചതും നൽകിയതും ഉണ്ട്. പല ജില്ലകളിലായുള്ള പദ്ധതികൾക്ക് കിഫ്ബിയുടെ പട്ടികയിലെ “നൽകിയ തുക” അതിലെ പ്രവൃത്തികളുടെ ആകെത്തുകയുടെ കൃത്യമായ ഗുണിതമാണ് (രണ്ടിരട്ടി, നാലിരട്ടി, ഒരിടത്ത് പതിനാലിരട്ടി): ഒരേ തുക ഓരോ ജില്ലയ്ക്കും വീണ്ടും കൂട്ടുന്നു. അതിനാൽ നൽകിയ തുക ഞങ്ങൾ പ്രവൃത്തികളിൽ നിന്നാണ് എടുക്കുന്നത്; രണ്ടും വ്യത്യസ്തമായിടത്ത് കിഫ്ബിയുടെ സംഖ്യയും കൂടെ കാണിക്കുന്നു. തുക മാറിയ പദ്ധതികളുടെ പ്രവൃത്തിപ്പട്ടിക അന്നുതന്നെ വീണ്ടും വായിക്കും; മറ്റുള്ളവ ഊഴമനുസരിച്ച്, ഓരോ രാത്രിയും കുറച്ചെണ്ണം വീതം.",
+                    "We also read KIIFB's project status page (kiifb.org/prjStatus.jsp) once a day. It gives, for each project, the amount approved and the amount released, and the same for each work. For a project filed under several districts, the “released” figure on KIIFB's list is an exact multiple of what its works add up to (twice, four times, in one case fourteen times): the list counts the same payments once per district. We therefore take what has been paid from the works, and show KIIFB's listed figure beside it wherever the two differ. When a project's figures move we re-read its work table the same night; the rest are re-read in turn, a few each night.",
                 )) }
 
                 p { (lang.pick(
@@ -162,7 +164,7 @@ pub fn data(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
         ("/api/v1/projects", "JSON", "എല്ലാ പദ്ധതികളും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "All projects, with their works"),
         ("/api/v1/projects.geojson", "GeoJSON", "പദ്ധതി സ്ഥാനങ്ങൾ", "Project locations"),
         ("/api/v1/funding.csv", "CSV", "അനുവദിച്ചതും നൽകിയതും: ഓരോ പ്രവൃത്തിയും ഒരു വരി", "Approved and paid, one row per work"),
-        ("/api/v1/funding", "JSON", "അനുവദിച്ചതും നൽകിയതും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "Approved and released, with works"),
+        ("/api/v1/funding", "JSON", "അനുവദിച്ചതും നൽകിയതും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "Approved and paid, with works"),
         ("/api/v1/liability.csv", "CSV", "കരാറുകാരന്റെ ബാധ്യതാ കാലാവധിയിലുള്ള പി.ഡബ്ല്യു.ഡി പ്രവൃത്തികൾ", "PWD works under contractor liability"),
     ];
     let body = html! {
@@ -233,6 +235,147 @@ pub fn map(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
     let mut p = page(lang, t.map_title, t.map_intro, "/map", origin, Nav::Map, last_checked);
     p.head = head_markup;
     layout(&p, body)
+}
+
+/// Whether the nightly reads are working, and how much the site is used.
+pub fn status(lang: Lang, origin: &str, status: &Status, now_ms: i64) -> String {
+    let title = lang.pick("പ്രവർത്തന നില", "Status");
+    let lead = lang.pick(
+        "ഓരോ ഉറവിടവും അവസാനം വായിച്ചത് എപ്പോൾ, രാത്രിയിലെ ശേഖരണം നടക്കുന്നുണ്ടോ, സൈറ്റ് എത്ര പേർ ഉപയോഗിക്കുന്നു.",
+        "When each source was last read, whether the nightly collection is running, and how much the site is used.",
+    );
+    let ago = |hours: i64| match lang {
+        Lang::Ml if hours < 48 => format!("{hours} മണിക്കൂർ മുമ്പ്"),
+        Lang::Ml => format!("{} ദിവസം മുമ്പ്", hours / 24),
+        Lang::En if hours < 48 => format!("{hours} hours ago"),
+        Lang::En => format!("{} days ago", hours / 24),
+    };
+    let day = |at: &str| kanakku_core::Date::from_utc_timestamp_ist(at).map(kanakku_core::Date::to_dmy).unwrap_or_default();
+    let body = html! {
+        (head(lang, title, lead))
+        div.wrap {
+            section.sec {
+                h2.h { (lang.pick("ഉറവിടങ്ങൾ", "Sources")) }
+                div.scroll {
+                    table {
+                        thead { tr {
+                            th { (lang.pick("ഉറവിടം", "Source")) }
+                            th { (lang.pick("അവസാനം വിജയകരമായി വായിച്ചത്", "Last good read")) }
+                            th { (lang.pick("നില", "State")) }
+                        } }
+                        tbody {
+                            @for source in &status.sources {
+                                @let (age, stale) = crate::api::freshness(source, now_ms);
+                                @let last = source.last_ok_at.as_deref().or(source.last_scraped_at.as_deref());
+                                tr {
+                                    td { a href=(source.base_url) rel="noopener" lang="en" { (source.name) } }
+                                    td {
+                                        @match (last, age) {
+                                            (Some(at), Some(hours)) => { (day(at)) " · " (ago(hours)) },
+                                            _ => (lang.pick("ഇതുവരെ വായിച്ചിട്ടില്ല", "Not read yet")),
+                                        }
+                                    }
+                                    td {
+                                        @if stale {
+                                            span.badge.flag { (lang.pick("പഴകി", "Stale")) }
+                                        } @else {
+                                            span.badge { (lang.pick("പുതിയത്", "Up to date")) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                p.small.muted {
+                    (lang.pick(
+                        "ഡാഷ്ബോർഡും സ്റ്റാറ്റസ് താളും ദിവസവും, പി.ഡബ്ല്യു.ഡി പട്ടിക ആഴ്ചയിലൊരിക്കലും വായിക്കുന്നു. അതിലും വൈകിയാൽ “പഴകി” എന്ന് കാണിക്കും.",
+                        "The dashboard and the status page are read daily and the PWD list weekly. A source that falls behind that is shown as stale.",
+                    ))
+                    " "
+                    a href="/api/v1/status" { (lang.pick("യന്ത്രങ്ങൾക്കുള്ള പരിശോധന", "Machine-readable check")) }
+                }
+            }
+
+            @if !status.runs.is_empty() {
+                section.sec {
+                    h2.h { (lang.pick("സമീപകാല ശേഖരണങ്ങൾ", "Recent runs")) }
+                    div.scroll {
+                        table {
+                            thead { tr {
+                                th { (lang.pick("തീയതി", "Date")) }
+                                th { (lang.pick("ഉറവിടം", "Source")) }
+                                th { (lang.pick("ഫലം", "Result")) }
+                            } }
+                            tbody {
+                                @for run in &status.runs {
+                                    tr {
+                                        td { (day(&run.finished_at)) }
+                                        td lang="en" { (source_name(run.source_id)) @if run.trigger == "manual" { " · " (lang.pick("കൈകൊണ്ട്", "by hand")) } }
+                                        td {
+                                            @if run.ok == 1 {
+                                                (lang.pick("വിജയിച്ചു", "Succeeded"))
+                                            } @else {
+                                                span.badge.flag { (lang.pick("പരാജയപ്പെട്ടു", "Failed")) }
+                                                @if let Some(why) = &run.summary { " " span.small { (en(&why.chars().take(160).collect::<String>())) } }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            section.sec {
+                h2.h { (lang.pick("സന്ദർശനങ്ങൾ", "Visits")) }
+                @if status.views.is_empty() {
+                    p.muted { (lang.pick("ഇതുവരെ കണക്കില്ല.", "Nothing counted yet.")) }
+                } @else {
+                    div.scroll {
+                        table {
+                            thead { tr {
+                                th { (lang.pick("താൾ", "Page")) }
+                                th { (lang.pick("കഴിഞ്ഞ 7 ദിവസം", "Last 7 days")) }
+                                th { (lang.pick("കഴിഞ്ഞ 30 ദിവസം", "Last 30 days")) }
+                            } }
+                            tbody {
+                                @for view in &status.views {
+                                    tr { td { (view_kind_label(lang, &view.kind)) } td { (view.week) } td { (view.month) } }
+                                }
+                            }
+                        }
+                    }
+                }
+                p.small.muted { (lang.pick(
+                    "ഓരോ തരം താളും ഓരോ ദിവസം എത്ര തവണ തുറന്നു എന്നു മാത്രം ഞങ്ങൾ എണ്ണുന്നു. കുക്കികളില്ല, ഐ.പി വിലാസങ്ങൾ സൂക്ഷിക്കുന്നില്ല, ആരെയും തിരിച്ചറിയുന്നില്ല. അറിയപ്പെടുന്ന യന്ത്രങ്ങളെ ഒഴിവാക്കുന്നു.",
+                    "We count only how often each kind of page is opened each day. No cookies, no stored addresses, nothing that identifies anyone. Known robots are left out.",
+                )) }
+            }
+        }
+    };
+    layout(&page(lang, title, lead, "/status", origin, Nav::None, None), body)
+}
+
+fn view_kind_label(lang: Lang, kind: &str) -> String {
+    match kind {
+        "home" => lang.pick("മുൻതാൾ", "Front page"),
+        "projects" => lang.pick("പദ്ധതി പട്ടിക", "Project list"),
+        "project" => lang.pick("ഒരു പദ്ധതി", "A project"),
+        "funding" => lang.pick("അനുവദിച്ചതും നൽകിയതും", "Approved and released"),
+        "funding_project" => lang.pick("ഒരു പദ്ധതിയുടെ തുകകൾ", "A project's payments"),
+        "liability" => lang.pick("അറ്റകുറ്റപ്പണി ബാധ്യത", "Repair liability"),
+        "contractors" | "contractor" => lang.pick("കരാറുകാർ", "Contractors"),
+        "agencies" | "agency" => lang.pick("നിർവഹണ സ്ഥാപനങ്ങൾ", "Agencies"),
+        "district" => lang.pick("ജില്ല", "A district"),
+        "map" => lang.pick("ഭൂപടം", "Map"),
+        "methodology" => lang.pick("രീതി", "Method"),
+        "data" => lang.pick("ഡാറ്റ", "Data"),
+        "status" => lang.pick("പ്രവർത്തന നില", "Status"),
+        other => return other.to_string(),
+    }
+    .to_string()
 }
 
 pub fn not_found(lang: Lang, origin: &str) -> String {

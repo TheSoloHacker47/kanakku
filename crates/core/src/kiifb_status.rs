@@ -69,6 +69,8 @@ pub struct FundedProject {
     pub main_project: Option<String>,
     /// `None` while the project is still under evaluation.
     pub approved: Option<i64>,
+    /// "Payment Released" as KIIFB's list states it. For a project filed under several
+    /// districts the list counts every payment once per district, so use `paid()` instead.
     pub released: Option<i64>,
     pub status: Option<String>,
     pub works: Vec<FundedWork>,
@@ -104,6 +106,33 @@ impl FundedProject {
 
     pub fn works_paid(&self) -> i64 {
         self.works.iter().filter_map(|w| w.paid).sum()
+    }
+
+    pub fn works_approved(&self) -> i64 {
+        self.works.iter().filter_map(|w| w.approved).sum()
+    }
+
+    /// What has been paid: the sum of the works' paid amounts. Only a project whose work
+    /// table has not been read, or is empty, falls back to the figure on KIIFB's list.
+    pub fn paid(&self) -> Option<i64> {
+        if self.works.is_empty() {
+            self.released
+        } else {
+            Some(self.works_paid())
+        }
+    }
+
+    /// How many times over KIIFB's list counts this project's payments: 2 or more when the
+    /// listed figure is that exact multiple of what the works add up to.
+    pub fn listed_multiple(&self) -> Option<i64> {
+        let (listed, paid) = (self.released?, self.works_paid());
+        if self.works.is_empty() || paid <= 0 || listed <= paid {
+            return None;
+        }
+        let multiple = (listed as f64 / paid as f64).round() as i64;
+        // Paise are rounded per work, so allow a rupee of drift for each work and each copy.
+        let drift = (listed - multiple * paid).abs();
+        (multiple >= 2 && drift <= multiple * self.works.len() as i64).then_some(multiple)
     }
 }
 
@@ -610,6 +639,29 @@ mod tests {
                 ("work[Utility shifting]".to_string(), None, Some("listed".to_string())),
             ]
         );
+    }
+
+    #[test]
+    fn paid_is_the_sum_of_the_works_not_the_listed_figure() {
+        // KIIFB lists 328,732,600 released; the three works add up to a quarter of that.
+        let mut p = funded("a1", "Ernakulam-Idukki Phase-3 Cluster", 90_000_000, "General Education Department", "INKEL LIMITED");
+        p.released = Some(328_732_600);
+        assert_eq!(p.paid(), Some(328_732_600), "with no work table read, the listed figure is all there is");
+        assert_eq!(p.listed_multiple(), None);
+
+        p.works = vec![
+            FundedWork { name: "A".into(), paid: Some(40_000_000), approved: Some(41_000_000), ..FundedWork::default() },
+            FundedWork { name: "B".into(), paid: Some(42_183_150), approved: Some(41_804_586), ..FundedWork::default() },
+            FundedWork { name: "C".into(), paid: Some(0), ..FundedWork::default() },
+        ];
+        assert_eq!(p.paid(), Some(82_183_150));
+        assert_eq!(p.works_approved(), 82_804_586);
+        assert_eq!(p.listed_multiple(), Some(4));
+
+        p.released = Some(82_183_150);
+        assert_eq!(p.listed_multiple(), None, "a listed figure equal to the works is not a multiple");
+        p.released = Some(100_000_000);
+        assert_eq!(p.listed_multiple(), None, "nor is one that is no whole multiple");
     }
 
     #[test]

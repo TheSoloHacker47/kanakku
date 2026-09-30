@@ -15,6 +15,7 @@ mod http;
 mod icons;
 mod ingest;
 mod liability;
+mod runs;
 mod views;
 
 use http::Policy;
@@ -39,25 +40,48 @@ async fn fetch(req: Request, env: Env, ctx: Context) -> Result<Response> {
 
 #[event(scheduled)]
 async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
-    match ingest::run(&env, None).await {
-        Ok(report) => console_log!("ingest ok: {}", serde_json::to_string(&report).unwrap_or_default()),
-        Err(e) => console_error!("ingest failed: {e}"),
+    // The sources fail independently; one being down must not stop the others.
+    let started = runs::now_iso();
+    let result = ingest::run(&env, None).await;
+    log_outcome("dashboard", &result);
+    runs::record(&env, 1, "cron", &started, &result).await;
+
+    let started = runs::now_iso();
+    let result = funding::run(&env, funding::DEFAULT_DETAILS).await;
+    log_outcome("status", &result);
+    runs::record(&env, 2, "cron", &started, &result).await;
+
+    let started = runs::now_iso();
+    let result = liability::run(&env, false).await;
+    log_outcome("liability", &result);
+    // The liability list is read weekly; a night it is skipped is not a run.
+    if !matches!(&result, Ok(report) if report.skipped) {
+        runs::record(&env, 3, "cron", &started, &result).await;
     }
-    // The two sources fail independently; one being down must not stop the other.
-    match funding::run(&env, funding::DEFAULT_DETAILS).await {
-        Ok(report) => console_log!("status ingest ok: {}", serde_json::to_string(&report).unwrap_or_default()),
-        Err(e) => console_error!("status ingest failed: {e}"),
-    }
-    match liability::run(&env, false).await {
-        Ok(report) => console_log!("liability ingest ok: {}", serde_json::to_string(&report).unwrap_or_default()),
-        Err(e) => console_error!("liability ingest failed: {e}"),
+}
+
+fn log_outcome<T: serde::Serialize>(name: &str, result: &Result<T>) {
+    match result {
+        Ok(report) => console_log!("{name} ingest ok: {}", serde_json::to_string(report).unwrap_or_default()),
+        Err(e) => console_error!("{name} ingest failed: {e}"),
     }
 }
 
 /// Serves a GET from the edge cache when it can, and fills the cache when it cannot.
 async fn cached(req: Request, env: &Env, ctx: &Context) -> Result<Response> {
-    let use_cache = env.var("EDGE_CACHE").map(|v| v.to_string() == "on").unwrap_or(false);
+    // The health check must always reflect the present.
+    let use_cache = env.var("EDGE_CACHE").map(|v| v.to_string() == "on").unwrap_or(false) && req.path() != "/api/v1/status";
     let cache = Cache::default();
+
+    // Count the visit whether or not the page comes from the cache.
+    if req.method() == Method::Get {
+        let robot = req.headers().get("User-Agent")?.is_none_or(|ua| runs::is_robot(&ua));
+        if let Some((kind, lang)) = runs::view_kind(&req.path()).filter(|_| !robot) {
+            let env = env.clone();
+            ctx.wait_until(async move { runs::count_view(&env, kind, lang).await });
+        }
+    }
+
     if use_cache {
         if let Some(hit) = cache.get(&req, false).await? {
             return Ok(hit);
@@ -123,6 +147,16 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             let sort = req.url()?.query_pairs().find(|(key, _)| key == "sort").map(|(_, v)| db::FundingSort::parse(&v)).unwrap_or_default();
             let (rows, totals) = db::funding_list(&db, sort).await?;
             http::html(views::funding::list(lang, origin, sort, &rows, &totals), 200, Policy::Page)
+        }
+        "/status" => http::html(views::pages::status(lang, origin, &db::status(&db).await?, worker::Date::now().as_millis() as i64), 200, Policy::Page),
+        "/api/v1/status" => {
+            let status = db::status(&db).await?;
+            let (body, healthy) = api::status_json(&status, worker::Date::now().as_millis() as i64);
+            let mut response = Response::from_bytes(body.into_bytes())?.with_status(if healthy { 200 } else { 503 });
+            response.headers_mut().set("Content-Type", "application/json; charset=utf-8")?;
+            response.headers_mut().set("Cache-Control", "no-store")?;
+            response.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+            Ok(response)
         }
         "/liability" => {
             let url = req.url()?;
@@ -269,18 +303,24 @@ async fn admin(mut req: Request, env: &Env) -> Result<Response> {
     }
     let url = req.url()?;
     let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, value)| value.into_owned());
+    let started = runs::now_iso();
     if param("source").as_deref() == Some("status") {
         // `details` caps how many work tables this run reads, so a first load can be done in steps.
         let details = param("details").and_then(|n| n.parse().ok()).unwrap_or(funding::DEFAULT_DETAILS);
-        return Response::from_json(&funding::run(env, details).await?);
+        let result = funding::run(env, details).await;
+        runs::record(env, 2, "manual", &started, &result).await;
+        return Response::from_json(&result?);
     }
     if param("source").as_deref() == Some("liability") {
-        return Response::from_json(&liability::run(env, true).await?);
+        let result = liability::run(env, true).await;
+        runs::record(env, 3, "manual", &started, &result).await;
+        return Response::from_json(&result?);
     }
     // A body is a copy of the dashboard page pushed from elsewhere; without one we fetch it.
     let body = req.bytes().await?;
-    let report = ingest::run(env, (!body.is_empty()).then_some(body)).await?;
-    Response::from_json(&report)
+    let result = ingest::run(env, (!body.is_empty()).then_some(body)).await;
+    runs::record(env, 1, "manual", &started, &result).await;
+    Response::from_json(&result?)
 }
 
 /// `Authorization: Bearer <INGEST_TOKEN>`, compared without short-circuiting.

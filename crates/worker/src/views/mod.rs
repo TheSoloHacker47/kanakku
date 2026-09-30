@@ -118,6 +118,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                                 li { a href=(href("/map")) { (t.nav_map) } }
                                 li { a href=(href("/methodology")) { (t.nav_methodology) } }
                                 li { a href=(href("/data")) { (t.nav_data) } }
+                                li { a href=(href("/status")) { (lang.pick("പ്രവർത്തന നില", "Status")) } }
                             }
                         }
                         div {

@@ -14,7 +14,7 @@ use crate::http::encode_segment;
 use crate::icons;
 
 pub fn title(lang: Lang) -> &'static str {
-    lang.pick("അനുവദിച്ചതും നൽകിയതും", "Approved and released")
+    lang.pick("അനുവദിച്ചതും നൽകിയതും", "Approved and paid")
 }
 
 pub fn list(lang: Lang, origin: &str, sort: FundingSort, rows: &[FundingRow], totals: &FundingTotals) -> String {
@@ -26,7 +26,7 @@ pub fn list(lang: Lang, origin: &str, sort: FundingSort, rows: &[FundingRow], to
             totals.total
         ),
         Lang::En => format!(
-            "KIIFB's project status page lists {} projects under Ernakulam. For each one, this is what KIIFB approved and what it has released so far.",
+            "KIIFB's project status page lists {} projects under Ernakulam. For each one, this is what KIIFB approved and what has been paid so far.",
             totals.total
         ),
     };
@@ -91,7 +91,7 @@ pub fn totals_panels(lang: Lang, totals: &FundingTotals, on_home: bool) -> Marku
                 p.small { (inr(approved)) }
             }
             div.panel {
-                h2 { (lang.pick("ഇതുവരെ നൽകിയത്", "Released so far")) }
+                h2 { (lang.pick("ഇതുവരെ നൽകിയത്", "Paid so far")) }
                 p.num { (big_amount(released, lang)) }
                 @if approved > 0 {
                     p.small { (share_of_approved(lang, released, approved)) }
@@ -132,7 +132,7 @@ fn list_row(lang: Lang, row: &FundingRow) -> Markup {
                             span {
                                 @match lang {
                                     Lang::Ml => { "നൽകി · അനുവദിച്ചത് " (inr_short(approved, lang)) },
-                                    Lang::En => { "released of " (inr_short(approved, lang)) " approved" },
+                                    Lang::En => { "paid of " (inr_short(approved, lang)) " approved" },
                                 }
                             }
                         },
@@ -208,17 +208,17 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
                     }
                 }
                 div.panel {
-                    h2 { (lang.pick("ഇതുവരെ നൽകിയത്", "Released so far")) }
-                    @match project.released {
-                        Some(released) => {
-                            p.num { (big_amount(released, lang)) }
+                    h2 { (lang.pick("ഇതുവരെ നൽകിയത്", "Paid so far")) }
+                    @match project.paid() {
+                        Some(paid) => {
+                            p.num { (big_amount(paid, lang)) }
                             p.small {
-                                (inr(released))
-                                @if let Some(approved) = project.approved.filter(|a| *a > 0) {
-                                    " · " (share_of_approved(lang, released, approved))
+                                (inr(paid))
+                                @if let Some(approved) = project.approved.filter(|a| *a > 0 && paid <= *a) {
+                                    " · " (share_of_approved(lang, paid, approved))
                                 }
                             }
-                            @if let Some(approved) = project.approved.filter(|a| *a > 0) { (meter(released as f64 / approved as f64, "")) }
+                            @if let Some(approved) = project.approved.filter(|a| *a > 0 && paid <= *a) { (meter(paid as f64 / approved as f64, "")) }
                         },
                         None => { p.num { "—" } p.small { (t.not_reported) } },
                     }
@@ -247,6 +247,8 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
                     }
                 }
             }
+
+            (source_notes(lang, project))
 
             @if !project.works.is_empty() {
                 section.sec {
@@ -346,10 +348,10 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
         }
     };
 
-    let description = match (project.approved, project.released) {
+    let description = match (project.approved, project.paid()) {
         (Some(approved), Some(released)) => match lang {
             Lang::Ml => format!("അനുവദിച്ചത് {}, നൽകിയത് {}. ഉറവിടം: കിഫ്ബി.", inr_short(approved, lang), inr_short(released, lang)),
-            Lang::En => format!("{} approved, {} released. Source: KIIFB.", inr_short(approved, lang), inr_short(released, lang)),
+            Lang::En => format!("{} approved, {} paid. Source: KIIFB.", inr_short(approved, lang), inr_short(released, lang)),
         },
         _ => t.list_intro.to_string(),
     };
@@ -421,6 +423,40 @@ fn paid_line(lang: Lang, w: &FundedWork) -> Markup {
     }
 }
 
+/// Where KIIFB's own figures for a project do not agree with each other, say so plainly.
+fn source_notes(lang: Lang, project: &FundedProject) -> Markup {
+    let paid = project.works_paid();
+    let works_approved = project.works_approved();
+    html! {
+        @if let (Some(multiple), Some(listed)) = (project.listed_multiple(), project.released) {
+            p.note.sec {
+                @match lang {
+                    Lang::Ml => {
+                        "കിഫ്ബിയുടെ പട്ടികയിൽ ഈ പദ്ധതിക്ക് “നൽകിയ തുക” " (inr(listed)) " എന്നാണ്. അത് താഴെയുള്ള പ്രവൃത്തികൾക്ക് നൽകിയ ആകെ തുകയുടെ കൃത്യം " (multiple)
+                        " മടങ്ങാണ്; പല ജില്ലകളിലായുള്ള പദ്ധതികളിൽ പട്ടിക ഒരേ തുക ആവർത്തിച്ച് കൂട്ടുന്നു. അതിനാൽ ഞങ്ങൾ പ്രവൃത്തികളുടെ ആകെത്തുകയാണ് കാണിക്കുന്നത്: " (inr(paid)) "."
+                    },
+                    Lang::En => {
+                        "KIIFB's list gives “payment released” for this project as " (inr(listed)) ". That is exactly " (multiple)
+                        " times what the works below add up to; for projects filed under several districts the list counts the same payments more than once. So we show the total of the works: " (inr(paid)) "."
+                    },
+                }
+            }
+        }
+        @if let Some(approved) = project.approved.filter(|a| *a > 0 && works_approved as f64 > *a as f64 * 1.01) {
+            p.note.sec {
+                @match lang {
+                    Lang::Ml => {
+                        "കിഫ്ബിയുടെ കണക്കുകൾ ഇവിടെ പൊരുത്തപ്പെടുന്നില്ല: പദ്ധതിക്ക് അനുവദിച്ചത് " (inr(approved)) " എന്ന് പട്ടികയിൽ; പ്രവൃത്തികൾക്ക് അനുവദിച്ചതിന്റെ ആകെ " (inr(works_approved)) ". രണ്ടും ഉറവിടത്തിൽ ഉള്ളതുപോലെ കാണിക്കുന്നു."
+                    },
+                    Lang::En => {
+                        "KIIFB's figures do not agree here: its list says " (inr(approved)) " was approved for the project, while the approvals of the works add up to " (inr(works_approved)) ". Both are shown as the source states them."
+                    },
+                }
+            }
+        }
+    }
+}
+
 /// The section on a map package's page: the status-page project it belongs to.
 pub fn project_section(lang: Lang, link: &FundingLink, package_count: u32) -> Markup {
     let Ok(project) = serde_json::from_str::<FundedProject>(&link.record_json) else { return html! {} };
@@ -429,7 +465,7 @@ pub fn project_section(lang: Lang, link: &FundingLink, package_count: u32) -> Ma
     let href = format!("{}/f/{}", lang.prefix(), encode_segment(&project.reference));
     html! {
         section.sec #payments {
-            h2.h { (lang.pick("കിഫ്ബി അനുവദിച്ചതും നൽകിയതും", "What KIIFB approved and released")) }
+            h2.h { (lang.pick("കിഫ്ബി അനുവദിച്ചതും നൽകിയതും", "What KIIFB approved and paid")) }
             div.note {
                 p {
                     @match lang {
@@ -450,14 +486,16 @@ pub fn project_section(lang: Lang, link: &FundingLink, package_count: u32) -> Ma
                     dd { @match project.approved { Some(a) => { (inr(a)) small { (inr_short(a, lang)) } }, None => span.none { "—" } } }
                 }
                 div {
-                    dt { (lang.pick("ഇതുവരെ നൽകിയത്", "Released so far")) }
+                    dt { (lang.pick("ഇതുവരെ നൽകിയത്", "Paid so far")) }
                     dd {
-                        @match project.released {
-                            Some(released) => {
-                                (inr(released))
-                                @if let Some(approved) = project.approved.filter(|a| *a > 0) {
-                                    small { (share_of_approved(lang, released, approved)) }
-                                    (meter(released as f64 / approved as f64, ""))
+                        @match project.paid() {
+                            Some(paid) => {
+                                (inr(paid))
+                                @if let Some(approved) = project.approved.filter(|a| *a > 0 && paid <= *a) {
+                                    small { (share_of_approved(lang, paid, approved)) }
+                                    (meter(paid as f64 / approved as f64, ""))
+                                } @else {
+                                    small { (inr_short(paid, lang)) }
                                 }
                             },
                             None => span.none { "—" },
@@ -534,8 +572,8 @@ fn status_label(lang: Lang, raw: &str) -> String {
 fn sort_label(lang: Lang, sort: FundingSort) -> &'static str {
     match sort {
         FundingSort::Approved => lang.pick("കൂടുതൽ അനുവദിച്ചവ", "Largest approval"),
-        FundingSort::Released => lang.pick("കൂടുതൽ നൽകിയവ", "Most released"),
-        FundingSort::Balance => lang.pick("നൽകാൻ ബാക്കിയുള്ളവ", "Most still to release"),
+        FundingSort::Released => lang.pick("കൂടുതൽ നൽകിയവ", "Most paid"),
+        FundingSort::Balance => lang.pick("നൽകാൻ ബാക്കിയുള്ളവ", "Most still to pay"),
         FundingSort::Name => lang.pick("പേര് (A–Z)", "Name (A–Z)"),
     }
 }

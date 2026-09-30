@@ -5,7 +5,8 @@ use kanakku_core::kiifb_status::{self, FundedProject};
 use kanakku_core::model::Project;
 use serde_json::{json, Value};
 
-use crate::db::{ExportRow, FundingExportRow, LiabilityExportRow, ProjectPage};
+use crate::db::{ExportRow, FundingExportRow, LiabilityExportRow, ProjectPage, SourceStatus, Status};
+use crate::runs::STALE_AFTER_HOURS;
 
 fn flag_list(types: Option<&str>) -> Vec<&str> {
     types.map(|t| t.split(',').collect()).unwrap_or_default()
@@ -169,8 +170,14 @@ pub fn funding_json(rows: &[FundingExportRow], last_checked: Option<&str>) -> St
     let projects: Vec<Value> = rows
         .iter()
         .filter_map(|row| {
+            let project: FundedProject = serde_json::from_str(&row.record_json).ok()?;
             let mut record: Value = serde_json::from_str(&row.record_json).ok()?;
             let object = record.as_object_mut()?;
+            // KIIFB's list over-counts payments for projects filed under several districts.
+            object.insert("released_as_listed".into(), json!(project.released));
+            object.remove("released");
+            object.insert("paid".into(), json!(project.paid()));
+            object.insert("listed_multiple".into(), json!(project.listed_multiple()));
             object.insert("map_group".into(), json!(row.group_key));
             object.insert("map_group_basis".into(), json!(row.match_basis));
             object.insert("first_seen_on".into(), json!(row.first_seen_on));
@@ -192,7 +199,7 @@ pub fn funding_json(rows: &[FundingExportRow], last_checked: Option<&str>) -> St
 /// One row per work; a project without works gets one row with the work columns empty.
 pub fn funding_csv(rows: &[FundingExportRow]) -> String {
     let mut out = String::from(
-        "project_ref,project,department,spv,announced_under,project_status,project_approved,project_released,map_group,work_no,work,work_spv,work_status,work_approved,work_paid,changed_on,missing_since\r\n",
+        "project_ref,project,department,spv,announced_under,project_status,project_approved,project_paid,project_released_as_listed,map_group,work_no,work,work_spv,work_status,work_approved,work_paid,changed_on,missing_since\r\n",
     );
     let num = |v: Option<i64>| v.map(|v| v.to_string()).unwrap_or_default();
     for row in rows {
@@ -205,6 +212,7 @@ pub fn funding_csv(rows: &[FundingExportRow]) -> String {
             p.main_project.clone().unwrap_or_default(),
             p.status.clone().unwrap_or_default(),
             num(p.approved),
+            num(p.paid()),
             num(p.released),
             row.group_key.clone().unwrap_or_default(),
         ];
@@ -281,4 +289,35 @@ pub fn liability_csv(rows: &[LiabilityExportRow]) -> String {
         out.push_str("\r\n");
     }
     out
+}
+
+/// Hours since a source was last read successfully, and whether that is too long.
+pub fn freshness(source: &SourceStatus, now_ms: i64) -> (Option<i64>, bool) {
+    let last = source.last_ok_at.as_deref().or(source.last_scraped_at.as_deref());
+    let age = last.map(|at| (now_ms - worker::js_sys::Date::new(&at.into()).get_time() as i64) / 3_600_000);
+    let limit = STALE_AFTER_HOURS.iter().find(|(id, _)| *id == source.id).map(|(_, hours)| *hours).unwrap_or(36);
+    (age, age.is_none_or(|hours| hours > limit))
+}
+
+/// The health check: every source, how old its last good read is, and whether any is stale.
+/// Returns the body and whether everything is fresh.
+pub fn status_json(status: &Status, now_ms: i64) -> (String, bool) {
+    let mut healthy = true;
+    let sources: Vec<Value> = status
+        .sources
+        .iter()
+        .map(|source| {
+            let (age, stale) = freshness(source, now_ms);
+            healthy &= !stale;
+            json!({
+                "source": source.name,
+                "url": source.base_url,
+                "last_good_read": source.last_ok_at.as_deref().or(source.last_scraped_at.as_deref()),
+                "hours_since": age,
+                "stale": stale,
+                "last_run_ok": source.last_run_ok.map(|ok| ok == 1),
+            })
+        })
+        .collect();
+    (json!({ "healthy": healthy, "sources": sources }).to_string(), healthy)
 }

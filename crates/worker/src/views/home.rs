@@ -114,7 +114,7 @@ pub fn render(lang: Lang, origin: &str, data: &Home) -> String {
                             h2.d2 { (funding::title(lang)) }
                             p { (lang.pick(
                                 "കിഫ്ബിയുടെ സ്വന്തം പ്രോജക്ട് സ്റ്റാറ്റസ് താളിൽ നിന്ന്: എറണാകുളത്തിന് കീഴിലുള്ള പദ്ധതികൾക്ക് അനുവദിച്ച തുകയും ഇതുവരെ നൽകിയ തുകയും. ചിലത് പല ജില്ലകളിലായുള്ളവയാണ്.",
-                                "From KIIFB's own project status page: what it approved for the projects listed under Ernakulam, and what it has released. Some span several districts.",
+                                "From KIIFB's own project status page: what it approved for the projects listed under Ernakulam, and what has been paid. Some span several districts.",
                             )) }
                         }
                         a.more href=(format!("{p}/funding")) { (lang.pick("ഓരോ പദ്ധതിയും", "Project by project")) (icon(icons::ARROW_RIGHT)) }

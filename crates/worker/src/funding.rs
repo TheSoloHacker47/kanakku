@@ -228,7 +228,7 @@ pub async fn run(env: &Env, max_details: usize) -> Result<Report> {
                 &db,
                 "UPDATE funding_projects SET main_project = ?2, work_count = ?3, over_paid_works = ?4, record_json = ?5,
                         detail_snapshot_id = ?6, detail_checked_at = ?7,
-                        changed_on = CASE WHEN ?8 THEN ?9 ELSE changed_on END
+                        changed_on = CASE WHEN ?8 THEN ?9 ELSE changed_on END, released_amount = ?10
                  WHERE ref = ?1",
                 reference,
                 updated.main_project,
@@ -239,6 +239,7 @@ pub async fn run(env: &Env, max_details: usize) -> Result<Report> {
                 now_iso,
                 record_change,
                 today_iso,
+                updated.paid(),
             )?);
             statements.push(query!(&db, &format!("DELETE FROM funding_works WHERE funding_project_id = {ID}"), reference)?);
             for (i, w) in updated.works.iter().enumerate() {
@@ -355,11 +356,12 @@ fn upsert(db: &D1Database, p: &FundedProject, snapshot_id: i64, today: &str, sou
     query!(
         db,
         "INSERT INTO funding_projects (ref, name, department, spv, main_project, approved_amount, released_amount, status,
-                                       work_count, over_paid_works, first_seen_on, changed_on, snapshot_id, record_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, ?12, ?13)
+                                       work_count, over_paid_works, first_seen_on, changed_on, snapshot_id, record_json, released_listed)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, ?12, ?13, ?15)
          ON CONFLICT(ref) DO UPDATE SET
            name = excluded.name, department = excluded.department, spv = excluded.spv,
            approved_amount = excluded.approved_amount, released_amount = excluded.released_amount, status = excluded.status,
+           released_listed = excluded.released_listed,
            changed_on = CASE WHEN ?14 THEN excluded.changed_on ELSE funding_projects.changed_on END,
            snapshot_id = excluded.snapshot_id, missing_since = NULL, record_json = excluded.record_json",
         p.reference,
@@ -368,7 +370,7 @@ fn upsert(db: &D1Database, p: &FundedProject, snapshot_id: i64, today: &str, sou
         p.spv,
         p.main_project,
         p.approved,
-        p.released,
+        p.paid(),
         p.status,
         p.works.len(),
         p.works.iter().filter(|w| w.paid_exceeds_approved()).count(),
@@ -376,6 +378,7 @@ fn upsert(db: &D1Database, p: &FundedProject, snapshot_id: i64, today: &str, sou
         snapshot_id,
         serde_json::to_string(p).map_err(|e| Error::RustError(e.to_string()))?,
         source_changed,
+        p.released,
     )
 }
 

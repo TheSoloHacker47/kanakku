@@ -713,3 +713,56 @@ pub async fn liability_export(db: &D1Database) -> Result<Vec<LiabilityExportRow>
     .await?
     .results()
 }
+
+/// One source and how its reads have gone.
+#[derive(Debug, Deserialize)]
+pub struct SourceStatus {
+    pub id: u32,
+    pub name: String,
+    pub base_url: String,
+    pub last_scraped_at: Option<String>,
+    /// When the last run that succeeded finished. Empty until the run log has one.
+    pub last_ok_at: Option<String>,
+    pub last_run_ok: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RunRow {
+    pub source_id: u32,
+    pub trigger: String,
+    pub finished_at: String,
+    pub ok: u32,
+    pub summary: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ViewCount {
+    pub kind: String,
+    pub week: u32,
+    pub month: u32,
+}
+
+pub struct Status {
+    pub sources: Vec<SourceStatus>,
+    pub runs: Vec<RunRow>,
+    pub views: Vec<ViewCount>,
+}
+
+pub async fn status(db: &D1Database) -> Result<Status> {
+    let results = db
+        .batch(vec![
+            db.prepare(
+                "SELECT s.id, s.name, s.base_url, s.last_scraped_at,
+                        (SELECT MAX(finished_at) FROM ingest_runs r WHERE r.source_id = s.id AND r.ok = 1) AS last_ok_at,
+                        (SELECT ok FROM ingest_runs r WHERE r.source_id = s.id ORDER BY r.id DESC LIMIT 1) AS last_run_ok
+                 FROM sources s ORDER BY s.id",
+            ),
+            db.prepare("SELECT source_id, trigger, finished_at, ok, summary FROM ingest_runs ORDER BY id DESC LIMIT 15"),
+            db.prepare(
+                "SELECT kind, COALESCE(SUM(CASE WHEN day >= date('now', '+330 minutes', '-6 days') THEN n END), 0) AS week, SUM(n) AS month
+                 FROM page_views WHERE day >= date('now', '+330 minutes', '-29 days') GROUP BY kind ORDER BY month DESC",
+            ),
+        ])
+        .await?;
+    Ok(Status { sources: results[0].results()?, runs: results[1].results()?, views: results[2].results()? })
+}
