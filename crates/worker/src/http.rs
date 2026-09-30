@@ -22,7 +22,7 @@ pub enum Policy {
 fn csp(policy: Policy) -> String {
     static STYLE_HASH: OnceLock<String> = OnceLock::new();
     let style = STYLE_HASH.get_or_init(|| base64(&Sha256::digest(CSS.as_bytes())));
-    let base = "default-src 'none'; img-src 'self' data: blob:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+    let base = "default-src 'none'; img-src 'self' data: blob:; font-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
     match policy {
         Policy::Page => format!("{base}; style-src 'sha256-{style}'"),
         Policy::Map => format!("{base}; style-src 'self' 'sha256-{style}'; script-src 'self'; connect-src 'self'"),

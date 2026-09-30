@@ -9,7 +9,9 @@ use worker::{
 
 mod api;
 mod db;
+mod district;
 mod http;
+mod icons;
 mod ingest;
 mod views;
 
@@ -86,16 +88,20 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
         _ => (Lang::Ml, path.as_str()),
     };
     let db = env.d1("DB")?;
+    let origin = req.url()?.origin().ascii_serialization();
+    let origin = origin.as_str();
+    let checked = || async { db::last_checked(&db).await };
 
     match rest {
-        "/" => {
+        "/" => http::html(views::home::render(lang, origin, &db::home(&db).await?), 200, Policy::Page),
+        "/projects" => {
             let filter = filter_from(req)?;
             let listing = db::list(&db, &filter).await?;
-            http::html(views::list::render(lang, &filter, &listing), 200, Policy::Page)
+            http::html(views::list::render(lang, origin, &filter, &listing), 200, Policy::Page)
         }
-        "/methodology" => http::html(views::pages::methodology(lang, db::last_checked(&db).await?.as_deref()), 200, Policy::Page),
-        "/data" => http::html(views::pages::data(lang, db::last_checked(&db).await?.as_deref()), 200, Policy::Page),
-        "/map" => http::html(views::pages::map(lang, db::last_checked(&db).await?.as_deref()), 200, Policy::Map),
+        "/methodology" => http::html(views::pages::methodology(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
+        "/data" => http::html(views::pages::data(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
+        "/map" => http::html(views::pages::map(lang, origin, checked().await?.as_deref()), 200, Policy::Map),
         "/api/v1/projects" => {
             let rows = db::export(&db).await?;
             http::data(api::projects_json(&rows, db::last_checked(&db).await?.as_deref()), "application/json; charset=utf-8")
@@ -105,7 +111,8 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
         _ => {
             if let Some(code) = rest.strip_prefix("/p/").filter(|c| is_code(c)) {
                 if let Some((project, data)) = load_project(&db, code).await? {
-                    return http::html(views::project::render(lang, &project, &data), 200, Policy::Page);
+                    let today = kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64);
+                    return http::html(views::project::render(lang, origin, &project, &data, today), 200, Policy::Page);
                 }
             } else if let Some(code) = rest.strip_prefix("/api/v1/projects/").filter(|c| is_code(c)) {
                 return match load_project(&db, code).await? {
@@ -115,7 +122,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             } else if let Some(id) = rest.strip_prefix("/snapshot/").and_then(|id| id.parse::<i64>().ok()) {
                 return snapshot(env, &db, id).await;
             }
-            http::html(views::pages::not_found(lang), 404, Policy::Page)
+            http::html(views::pages::not_found(lang, origin), 404, Policy::Page)
         }
     }
 }
@@ -195,8 +202,9 @@ fn filter_from(req: &Request) -> Result<db::Filter> {
             "q" => filter.q = value,
             "dept" => filter.department = value,
             "lac" => filter.constituency = value,
-            "status" => filter.status = value,
+            "stage" => filter.stage = value,
             "flag" => filter.flag = value,
+            "sort" => filter.sort = db::Sort::parse(&value),
             "page" => filter.page = value.parse().unwrap_or(1).clamp(1, 10_000),
             _ => {}
         }

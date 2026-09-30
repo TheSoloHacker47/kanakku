@@ -6,6 +6,7 @@ use kanakku_core::changes::diff;
 use kanakku_core::flags::{self, FlagKind, History, OpenFlag};
 use kanakku_core::kiifb;
 use kanakku_core::model::Project;
+use kanakku_core::stage::Stage;
 use kanakku_core::Date;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -34,6 +35,11 @@ pub struct Report {
 struct SnapshotRow {
     id: i64,
     sha256: String,
+}
+
+#[derive(Deserialize)]
+struct SourceRow {
+    parser_version: u32,
 }
 
 #[derive(Deserialize)]
@@ -115,15 +121,29 @@ pub async fn run(env: &Env, pushed: Option<Vec<u8>>) -> Result<Report> {
         }
     };
 
-    if report.new_snapshot {
-        upsert_projects(&db, &parsed.projects, snapshot_id, &today_iso, &mut report).await?;
+    // Records are rebuilt when the source changed, or when a newer parser reads the same page differently.
+    let stored_parser = query!(&db, "SELECT parser_version FROM sources WHERE id = ?1", SOURCE_ID)?
+        .first::<SourceRow>(None)
+        .await?
+        .map(|row| row.parser_version)
+        .unwrap_or(0);
+    if report.new_snapshot || stored_parser != kiifb::PARSER_VERSION {
+        upsert_projects(&db, &parsed.projects, snapshot_id, &today_iso, report.new_snapshot, &mut report).await?;
     } else {
         report.unchanged = parsed.projects.len();
     }
 
     recompute_flags(&db, &parsed.projects, snapshot_id, today, &now_iso, &mut report).await?;
 
-    query!(&db, "UPDATE sources SET last_scraped_at = ?1 WHERE id = ?2", now_iso, SOURCE_ID)?.run().await?;
+    query!(
+        &db,
+        "UPDATE sources SET last_scraped_at = ?1, parser_version = ?2 WHERE id = ?3",
+        now_iso,
+        kiifb::PARSER_VERSION,
+        SOURCE_ID,
+    )?
+    .run()
+    .await?;
     Ok(report)
 }
 
@@ -150,6 +170,7 @@ async fn upsert_projects(
     projects: &[Project],
     snapshot_id: i64,
     today: &str,
+    source_changed: bool,
     report: &mut Report,
 ) -> Result<()> {
     let existing: HashMap<String, ExistingRow> = db
@@ -176,7 +197,9 @@ async fn upsert_projects(
             }
             Some(row) => {
                 report.changed += 1;
-                if let Ok(before) = serde_json::from_str::<Project>(&row.record_json) {
+                // A re-read by a newer parser is not a change at the source, so it is not recorded as one.
+                let before = serde_json::from_str::<Project>(&row.record_json).ok().filter(|_| source_changed);
+                if let Some(before) = before {
                     for change in diff(&before, project) {
                         statements.push(query!(
                             db,
@@ -202,8 +225,8 @@ async fn upsert_projects(
             db,
             "INSERT INTO projects (code, title_en, department, sector, executing_agency, district, estimated_amount, expenditure,
                                    works_amount, official_status, first_estimated_amount, first_seen_on, changed_on, snapshot_id, record_json,
-                                   sub_project_code, estimate_shared_by, headline_amount)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?7, ?11, ?11, ?12, ?13, ?14, ?15, ?16)
+                                   sub_project_code, estimate_shared_by, headline_amount, stage)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?7, ?11, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
              ON CONFLICT(code) DO UPDATE SET
                title_en = excluded.title_en, department = excluded.department, sector = excluded.sector,
                executing_agency = excluded.executing_agency, district = excluded.district,
@@ -211,9 +234,10 @@ async fn upsert_projects(
                works_amount = excluded.works_amount, official_status = excluded.official_status,
                first_estimated_amount = COALESCE(projects.first_estimated_amount, excluded.estimated_amount),
                sub_project_code = excluded.sub_project_code, estimate_shared_by = excluded.estimate_shared_by,
-               headline_amount = excluded.headline_amount,
-               changed_on = excluded.changed_on, missing_since = NULL,
-               snapshot_id = excluded.snapshot_id, record_json = excluded.record_json",
+               headline_amount = excluded.headline_amount, stage = excluded.stage,
+               changed_on = CASE WHEN ?18 THEN excluded.changed_on ELSE projects.changed_on END,
+               snapshot_id = CASE WHEN ?18 THEN excluded.snapshot_id ELSE projects.snapshot_id END,
+               missing_since = NULL, record_json = excluded.record_json",
             code,
             project.title,
             project.department,
@@ -230,6 +254,8 @@ async fn upsert_projects(
             project.sub_project_code,
             project.estimate_shared_by.max(1),
             project.headline().map(|(amount, _)| amount).unwrap_or(0),
+            project.status.as_deref().and_then(Stage::from_status).map(Stage::as_str),
+            source_changed,
         )?);
         push_children(db, project, &mut statements)?;
     }

@@ -9,5 +9,8 @@ pub mod gaps;
 pub mod i18n;
 pub mod kiifb;
 pub mod model;
+pub mod names;
+pub mod stage;
+pub mod title;
 
 pub use date::Date;

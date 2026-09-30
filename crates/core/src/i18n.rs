@@ -138,8 +138,8 @@ pub static ML: Strings = Strings {
     lang_name: "മലയാളം",
     nav_projects: "പദ്ധതികൾ",
     nav_map: "ഭൂപടം",
-    nav_methodology: "രീതിശാസ്ത്രം",
-    nav_data: "തുറന്ന ഡാറ്റ",
+    nav_methodology: "രീതി",
+    nav_data: "ഡാറ്റ",
     skip_to_content: "ഉള്ളടക്കത്തിലേക്ക്",
 
     list_title: "എറണാകുളം ജില്ലയിലെ കിഫ്ബി പദ്ധതികൾ",
@@ -227,8 +227,8 @@ pub static EN: Strings = Strings {
     lang_name: "English",
     nav_projects: "Projects",
     nav_map: "Map",
-    nav_methodology: "Methodology",
-    nav_data: "Open data",
+    nav_methodology: "Method",
+    nav_data: "Data",
     skip_to_content: "Skip to content",
 
     list_title: "KIIFB projects in Ernakulam district",

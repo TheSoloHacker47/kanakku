@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "leaflet": "^1.9.4",
+    "lucide-static": "^1.49.0",
     "protomaps-leaflet": "^5.1.0",
     "wrangler": "^4.144.0"
   }

@@ -53,7 +53,7 @@ fn marker_amounts_are_rupees_despite_the_crore_label() {
     assert_eq!(p.constituencies.len(), 1);
     let c = &p.constituencies[0];
     assert_eq!(c.name, "Ernakulam");
-    assert_eq!(c.name_ml.as_deref(), Some("എറണാകുളം (82)"));
+    assert_eq!(c.name_ml.as_deref(), Some("എറണാകുളം"));
     assert_eq!(c.mla_name.as_deref(), Some("Shri T J Vinod"));
     assert_eq!(c.mla_name_ml.as_deref(), Some("ശ്രീ ടി ജെ വിനോദ്"));
     assert_eq!(p.status.as_deref(), Some("WBS Base Zero Approved"));

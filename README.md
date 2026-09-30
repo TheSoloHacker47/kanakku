@@ -13,9 +13,9 @@ Everything runs on Cloudflare, written in Rust.
 | `crates/core` | Pure Rust: the KIIFB parser, flag rules, change diffing, Indian number formatting and the Malayalam/English strings. Tested natively. |
 | `crates/worker` | The Worker (`workers-rs`): server-rendered pages, open-data endpoints and the nightly ingest. |
 | `migrations/` | D1 schema. |
-| `assets/` | Static files: the map script and its two libraries. Pages other than the map load no JavaScript. |
+| `assets/` | Static files: fonts, icons, the share image, and the map script with its two libraries. Pages other than the map load no JavaScript. |
 
-A page is one request: the HTML carries its own stylesheet, uses system fonts and needs one D1 round trip.
+A page is one HTML request with its stylesheet inlined and one D1 round trip. Fonts are self-hosted and cached for a year.
 
 ## Run it locally
 
@@ -34,6 +34,20 @@ curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" http://localhost:8787/admi
 ```
 
 The map needs a basemap file in R2. `scripts/basemap.sh` builds it and explains how to upload it.
+
+## Generated assets
+
+These are committed, so you only need the scripts when something changes.
+
+| Script | Writes | Needs |
+|---|---|---|
+| `scripts/icons.py` | `crates/worker/src/icons.rs` from Lucide | `npm install` |
+| `scripts/district.py` | `crates/worker/src/district.rs`, the district outline from OpenStreetMap | network |
+| `scripts/brand.py` | share image and app icons in `assets/` | Google Chrome, running dev server |
+| `scripts/vendor.sh` | map libraries in `assets/vendor/` | `npm install` |
+| `scripts/basemap.sh` | `tiles/ernakulam.pmtiles` | `brew install pmtiles` |
+
+`scripts/shot.sh URL out.png WIDTH HEIGHT` takes a screenshot with headless Chrome. It cannot go narrower than about 500 px.
 
 ## Tests
 

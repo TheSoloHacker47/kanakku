@@ -116,3 +116,49 @@ Low competition, photo contradiction and audit mention need sources that come la
 - **List and project pages load no JavaScript at all.** The stylesheet is inlined, so a page is one request and one D1 round trip.
 - **Schema additions:** `projects.sub_project_code`, `estimate_shared_by`, `headline_amount`, `missing_since`, `record_json`; `works.work_ref`, `loa_amount`, `paid_contractor`; flags reference a work by `work_ref`.
 - **Build notes:** `strip = true` in the release profile breaks `wasm-bindgen`; `watch_dir` must not include the build output directory.
+
+## Redesign (build 2)
+
+The first build was a black-and-white ledger. It was fast and honest but read as a prototype. This pass gives the site an identity, a front page, and better ways in, without giving up the one-request pages.
+
+### Direction
+
+Researched with Refero. The primary reference is a civic co-operative site (cqcm.coop): white canvas, black ink, confident headlines, and flat colour blocks that carry statistics. Two details are borrowed: heavy condensed display type for headlines and figures (wise.com), and a full-bleed colour block as the hero (n26.com).
+
+| Decision | Source | Why |
+|---|---|---|
+| White canvas, black ink, black pill buttons, 8 px radius, no shadows | cqcm.coop | Civic and direct; nothing decorative |
+| Stat tiles as stacked colour blocks | cqcm.coop | Its signature; the numbers are the content here |
+| Condensed extra-bold headlines and figures | wise.com | Long Malayalam headlines fit a phone; figures read at a glance |
+| Green hero block | n26.com, cqcm.coop | One strong brand moment per page |
+| Anek Malayalam for both scripts | Constraint: Malayalam-first | One family drawn for Malayalam and Latin together, with a condensed extra-bold cut |
+| Colour roles | cqcm.coop palette | Green = money and brand. Blue = sources and information. Persimmon = flags, and only flags |
+| Tally-of-five mark | Product name (കണക്ക്, "accounts") | The oldest way of keeping count |
+| District dot map as the hero image | Own data | Real project locations on the real boundary; no stock imagery |
+
+Rejected on purpose: indigo or violet accents, cream-and-serif "editorial" styling, cards as default containers, dark mode by default, emoji.
+
+### What was added
+
+- **Front page:** search, four stat tiles, flagged projects, departments with bars, constituency tiles, a stage breakdown, most spent, and three lines on how to read the site.
+- **Project list at `/projects`:** sorting, a stage filter, removable filter chips, and a heading that summarises the selection (a constituency shows its MLA as KIIFB lists them).
+- **Project page:** the headline figure on green, a stage track, a locator map, flag blocks, a schedule line with today marked, other packages under the same sub-project, and a WhatsApp share link.
+- **Readable titles.** Filing prefixes are dropped and all-capital titles are calmed; the name as published stays on the page.
+- **Plain stages.** KIIFB's workflow labels are grouped into five stages. The grouping is ours and the methodology page says so.
+- **One spelling per constituency,** with Malayalam names. KIIFB wrote Vypin three ways.
+- **Malayalam department names.**
+- **Share image, app icons and a web manifest.**
+- **Map deep links:** `/map#CODE` opens on that project.
+
+### Assets and their sources
+
+| Asset | Source | Licence |
+|---|---|---|
+| Anek Malayalam (three cuts, 120 KB) | Ek Type, via Google Fonts | OFL, text in `assets/fonts/OFL.txt` |
+| Icons (36) | Lucide | ISC |
+| District outline | OpenStreetMap relation 3740342 | ODbL, credited in the footer |
+| Mark, share image, app icons | Made here (`scripts/brand.py`) | Project's own |
+
+### Cost
+
+Pages other than the map still load no JavaScript. A first visit now also fetches the fonts (about 120 KB, cached for a year). HTML grew from about 5 KB to 9 to 14 KB compressed because the stylesheet is larger and the front page carries the dot map.

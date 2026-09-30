@@ -33,7 +33,16 @@ pub fn inr_short(amount: i64, lang: Lang) -> String {
         a if a >= LAKH => (LAKH, lang.pick("ലക്ഷം", "lakh")),
         _ => return inr(amount),
     };
-    format!("₹{} {label}", trim_decimal(amount as f64 / unit as f64))
+    // Hundredths of the unit, so the whole part can be grouped like any other rupee figure.
+    let hundredths = (amount as f64 / unit as f64 * 100.0).round() as i64;
+    let whole = inr(hundredths / 100);
+    let fraction = format!("{:02}", hundredths.abs() % 100);
+    let fraction = fraction.trim_end_matches('0');
+    if fraction.is_empty() {
+        format!("{whole} {label}")
+    } else {
+        format!("{whole}.{fraction} {label}")
+    }
 }
 
 /// `60.23879955` becomes `60.2%`, `80` becomes `80%`.
@@ -44,12 +53,6 @@ pub fn pct(value: f64) -> String {
     } else {
         format!("{rounded:.1}%")
     }
-}
-
-/// Two decimals at most, without trailing zeros.
-fn trim_decimal(v: f64) -> String {
-    let s = format!("{v:.2}");
-    s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
 #[cfg(test)]
@@ -76,6 +79,9 @@ mod tests {
         assert_eq!(inr_short(10_000_000, Lang::En), "₹1 crore");
         assert_eq!(inr_short(520_000, Lang::En), "₹5.2 lakh");
         assert_eq!(inr_short(99_999, Lang::En), "₹99,999");
+        assert_eq!(inr_short(16_531_359_995, Lang::En), "₹1,653.14 crore");
+        assert_eq!(inr_short(28_325_500_000, Lang::En), "₹2,832.55 crore");
+        assert_eq!(inr_short(9_999_999, Lang::En), "₹100 lakh");
     }
 
     #[test]

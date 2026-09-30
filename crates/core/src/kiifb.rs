@@ -12,9 +12,13 @@ use serde::de::{self, DeserializeOwned, Deserializer, IgnoredAny, SeqAccess, Vis
 use serde::Deserialize;
 
 use crate::model::{Constituency, Project, Site, Work};
+use crate::names::{canonical_constituency, constituency_ml};
 use crate::Date;
 
 pub const SOURCE_URL: &str = "https://gis.kiifb.org/";
+
+/// Bump when the parser reads the same page differently, so stored records are rebuilt.
+pub const PARSER_VERSION: u32 = 2;
 
 const RUPEES_PER_CRORE: f64 = 10_000_000.0;
 
@@ -89,7 +93,7 @@ pub fn parse(page: &[u8], district: &str) -> Result<Parsed, ParseError> {
                 project,
                 Constituency {
                     name,
-                    name_ml: link.and_then(|l| l.constituency_ml.clone()),
+                    name_ml: link.and_then(|l| l.constituency_ml.as_deref()).and_then(strip_number),
                     mla_name: link.and_then(|l| l.name.clone()),
                     mla_name_ml: link.and_then(|l| l.name_ml.clone()),
                 },
@@ -175,11 +179,29 @@ fn group_key(proj: &ProjRaw) -> Option<(String, i64)> {
     Some((proj.sub_code.clone()?, rupees(proj.estimated_amount, 1.0)?))
 }
 
-/// Adds a constituency once. A marker's entry carries the MLA, a work's only the name.
-fn add_constituency(project: &mut Project, c: Constituency) {
-    if !project.constituencies.iter().any(|known| known.name.eq_ignore_ascii_case(&c.name)) {
-        project.constituencies.push(c);
+/// Adds a constituency under its canonical name. A marker's entry carries the MLA, a work's
+/// only the name, so a later entry fills in whatever an earlier one lacked.
+fn add_constituency(project: &mut Project, mut c: Constituency) {
+    c.name = canonical_constituency(&c.name);
+    if c.name.is_empty() {
+        return;
     }
+    if let Some(ml) = constituency_ml(&c.name) {
+        c.name_ml = Some(ml.to_string());
+    }
+    match project.constituencies.iter_mut().find(|known| known.name == c.name) {
+        Some(known) => {
+            known.name_ml = known.name_ml.take().or(c.name_ml);
+            known.mla_name = known.mla_name.take().or(c.mla_name);
+            known.mla_name_ml = known.mla_name_ml.take().or(c.mla_name_ml);
+        }
+        None => project.constituencies.push(c),
+    }
+}
+
+/// "എറണാകുളം (82)" becomes "എറണാകുളം".
+fn strip_number(name: &str) -> Option<String> {
+    clean(name.split('(').next().unwrap_or(name))
 }
 
 fn project_from_marker(code: String, m: &MarkerRaw, district: &str) -> Project {
