@@ -188,6 +188,15 @@ pub fn render(lang: Lang, origin: &str, filter: &Filter, listing: &Listing) -> S
                 span.small.muted { (lang.pick("ക്രമം", "Sorted by")) ": " (sort_label(lang, filter.sort)) }
             }
 
+            @if kanakku_core::search::has_malayalam(&filter.q) {
+                p.small.muted {
+                    (lang.pick("കിഫ്ബി പേരുകൾ ഇംഗ്ലീഷിലാണ്. തിരഞ്ഞത്: ", "KIIFB's titles are in English. Searched for: "))
+                    @for (i, alternatives) in kanakku_core::search::expand(&filter.q).iter().enumerate() {
+                        @if i > 0 { " + " }
+                        span lang="en" { (alternatives.join(" / ")) }
+                    }
+                }
+            }
             @if listing.rows.is_empty() {
                 div.empty {
                     p { b { (t.no_results) } }

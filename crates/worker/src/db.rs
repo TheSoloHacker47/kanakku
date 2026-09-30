@@ -216,11 +216,17 @@ fn where_clause(filter: &Filter) -> (String, Vec<JsValue>) {
         binds.len()
     };
 
-    let terms: Vec<&str> = filter.q.split_whitespace().collect();
-    if !terms.is_empty() {
+    // Each word of the query is a group of alternatives: a Malayalam word becomes its English spellings.
+    let groups = kanakku_core::search::expand(&filter.q);
+    if !groups.is_empty() {
         // The trigram index needs three characters per term; shorter searches fall back to LIKE.
-        if terms.iter().all(|t| t.chars().count() >= 3) {
-            let phrase = terms.iter().map(|t| format!("\"{}\"", t.replace('"', "\"\""))).collect::<Vec<_>>().join(" ");
+        if groups.iter().all(|alternatives| alternatives.iter().all(|t| t.chars().count() >= 3)) {
+            let quoted = |t: &String| format!("\"{}\"", t.replace('"', "\"\""));
+            let phrase = groups
+                .iter()
+                .map(|alternatives| format!("({})", alternatives.iter().map(quoted).collect::<Vec<_>>().join(" OR ")))
+                .collect::<Vec<_>>()
+                .join(" AND ");
             parts.push(format!("p.id IN (SELECT rowid FROM projects_fts WHERE projects_fts MATCH ?{})", bind(&phrase)));
         } else {
             let like = format!("%{}%", filter.q.trim().replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));

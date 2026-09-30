@@ -14,6 +14,7 @@ pub mod kiifb_status;
 pub mod model;
 pub mod names;
 pub mod pwd_dlp;
+pub mod search;
 pub mod stage;
 pub mod title;
 
