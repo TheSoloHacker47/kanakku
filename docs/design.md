@@ -259,7 +259,7 @@ Paid is now the sum of the works' paid amounts. The listed figure is kept (`rele
 | The state's front page has district tiles, not 140 constituency tiles | Constituencies appear once a district is chosen |
 | Thousands of map dots are two SVG paths of zero-length strokes | One element per dot made the front page three times larger |
 | The status page is read district by district (14 requests) | It is the only way to learn which districts a project is filed under |
-| Work tables are read 150 a night | A first statewide load is about 1,400 requests; spreading it over ten nights is kinder to KIIFB than one burst |
+| Work tables are read 120 a night | A first statewide load is about 1,400 requests; spreading it over twelve nights is kinder to KIIFB than one burst, and keeps a run inside the limit on requests |
 | A PWD work's district is its office's district | PWD states no location; a division can cover neighbouring districts, and the page says so |
 | Ordinary pages now load one script | Offline support needs a service worker, and that needs registering |
 | Share images carry English text only | Malayalam needs a text shaper the Worker does not have; KIIFB's titles are English |

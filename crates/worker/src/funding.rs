@@ -21,7 +21,8 @@ use crate::ingest::{hex, run_batches, user_agent};
 
 const SOURCE_ID: u32 = 2;
 /// Work tables read in one run when nothing forces more.
-pub const DEFAULT_DETAILS: usize = 150;
+/// Kept well inside the limit on requests one run may make: each table is a fetch, a stored copy and a row.
+pub const DEFAULT_DETAILS: usize = 120;
 /// Unchanged projects re-read each night, oldest first, so a change in a work table is not missed for long.
 const ROTATION: usize = 10;
 const PAUSE: Duration = Duration::from_millis(1000);
