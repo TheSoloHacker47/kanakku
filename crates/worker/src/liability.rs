@@ -33,6 +33,8 @@ pub struct Report {
     pub unchanged: usize,
     pub went_missing: usize,
     pub returned: usize,
+    pub with_amount: usize,
+    pub amounts_updated: usize,
 }
 
 #[derive(Deserialize)]
@@ -51,6 +53,7 @@ struct ExistingRow {
     #[serde(rename = "ref")]
     reference: String,
     missing_since: Option<String>,
+    agreed_amount: Option<i64>,
 }
 
 /// Runs one read. Without `force` it does nothing if the list was read within the last week.
@@ -103,15 +106,18 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
         return Err(Error::RustError(format!("no {district} works in the PWD liability list; refusing to ingest")));
     }
 
-    // One work can sit under two spellings of a division; keep the first.
+    // PWD repeats some works; keep the first row, and an amount from whichever row carries one.
     let mut seen = HashSet::new();
     let mut keyed: Vec<(String, LiabilityWork)> = Vec::new();
     for work in works {
         let reference = hex(&Sha256::digest(work.identity().as_bytes()))[..16].to_string();
         if seen.insert(reference.clone()) {
             keyed.push((reference, work));
+        } else if let Some(kept) = keyed.iter_mut().find(|(r, _)| *r == reference) {
+            kept.1.agreed_amount = kept.1.agreed_amount.or(work.agreed_amount);
         }
     }
+    report.with_amount = keyed.iter().filter(|(_, w)| w.agreed_amount.is_some()).count();
     keyed.sort_by(|a, b| a.0.cmp(&b.0));
     report.works = keyed.len();
 
@@ -152,7 +158,7 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
     };
 
     let existing: HashMap<String, ExistingRow> = db
-        .prepare("SELECT ref, missing_since FROM liability_works")
+        .prepare("SELECT ref, missing_since, agreed_amount FROM liability_works")
         .all()
         .await?
         .results::<ExistingRow>()?
@@ -169,14 +175,18 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
                     report.returned += 1;
                     statements.push(query!(&db, "UPDATE liability_works SET missing_since = NULL WHERE ref = ?1", reference)?);
                 }
+                if row.agreed_amount != work.agreed_amount {
+                    report.amounts_updated += 1;
+                    statements.push(query!(&db, "UPDATE liability_works SET agreed_amount = ?2 WHERE ref = ?1", reference, work.agreed_amount)?);
+                }
             }
             None => {
                 report.added += 1;
                 statements.push(query!(
                     &db,
                     "INSERT INTO liability_works (ref, wing, name, contractor, contractor_key, starts_on, ends_on, division, subdivision,
-                                                  first_seen_on, snapshot_id)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                                                  first_seen_on, snapshot_id, agreed_amount)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                     reference,
                     work.wing,
                     work.name,
@@ -188,6 +198,7 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
                     work.subdivision,
                     today_iso,
                     snapshot_id,
+                    work.agreed_amount,
                 )?);
             }
         }
@@ -212,15 +223,16 @@ async fn touch(db: &D1Database, now_iso: &str) -> Result<()> {
 fn extract(works: &[(String, LiabilityWork)], now_iso: &str) -> String {
     let clean = |s: Option<&str>| s.unwrap_or("").replace(['\t', '\n', '\r'], " ");
     let mut out = format!(
-        "# Extract of the Kerala PWD defect-liability list, read {now_iso} from {}\n# Contact numbers printed on the source pages are left out.\nwing\twork\tcontractor\tliability_starts\tliability_ends\tdivision\tsubdivision\n",
+        "# Extract of the Kerala PWD defect-liability list, read {now_iso} from {}\n# Contact numbers printed on the source pages are left out.\n# agreed_amount is in the pages' markup but commented out there; whole rupees.\nwing\twork\tcontractor\tagreed_amount\tliability_starts\tliability_ends\tdivision\tsubdivision\n",
         dlp::SOURCE_URL
     );
     for (_, w) in works {
         out.push_str(&format!(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
             w.wing,
             clean(Some(&w.name)),
             clean(w.contractor.as_deref()),
+            w.agreed_amount.map(|a| a.to_string()).unwrap_or_default(),
             w.starts_on.map(Date::to_iso).unwrap_or_default(),
             w.ends_on.map(Date::to_iso).unwrap_or_default(),
             clean(w.division.as_deref()),

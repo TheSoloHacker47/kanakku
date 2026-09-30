@@ -608,6 +608,7 @@ pub struct LiabilityRow {
     pub name: String,
     pub contractor: Option<String>,
     pub contractor_key: Option<String>,
+    pub agreed_amount: Option<i64>,
     pub starts_on: Option<String>,
     pub ends_on: Option<String>,
     pub division: Option<String>,
@@ -620,6 +621,8 @@ pub struct LiabilityTotals {
     pub active: u32,
     pub ending_soon: u32,
     pub contractors: u32,
+    /// Works now under liability for which PWD states an agreed amount.
+    pub with_amount: u32,
     pub last_checked: Option<String>,
     pub snapshot_id: Option<i64>,
 }
@@ -638,7 +641,7 @@ pub struct Liability {
     pub contractors: Vec<ContractorCount>,
 }
 
-const LIABILITY_COLUMNS: &str = "wing, name, contractor, contractor_key, starts_on, ends_on, division, subdivision";
+const LIABILITY_COLUMNS: &str = "wing, name, contractor, contractor_key, agreed_amount, starts_on, ends_on, division, subdivision";
 
 /// `wing` and `contractor` narrow the rows; the totals and facets always describe the whole list.
 /// `today` and `soon` are yyyy-mm-dd: works ending between them count as ending soon.
@@ -661,6 +664,7 @@ pub async fn liability(db: &D1Database, wing: &str, contractor: &str, today: &st
                 "SELECT COUNT(*) AS total, COALESCE(SUM(ends_on >= ?1), 0) AS active,
                         COALESCE(SUM(ends_on >= ?1 AND ends_on <= ?2), 0) AS ending_soon,
                         COUNT(DISTINCT contractor_key) AS contractors,
+                        COALESCE(SUM(ends_on >= ?1 AND agreed_amount IS NOT NULL), 0) AS with_amount,
                         (SELECT last_scraped_at FROM sources WHERE id = 3) AS last_checked,
                         (SELECT MAX(id) FROM snapshots WHERE source_id = 3) AS snapshot_id
                  FROM liability_works WHERE missing_since IS NULL",
@@ -691,6 +695,7 @@ pub struct LiabilityExportRow {
     pub wing: String,
     pub name: String,
     pub contractor: Option<String>,
+    pub agreed_amount: Option<i64>,
     pub starts_on: Option<String>,
     pub ends_on: Option<String>,
     pub division: Option<String>,
@@ -701,7 +706,7 @@ pub struct LiabilityExportRow {
 
 pub async fn liability_export(db: &D1Database) -> Result<Vec<LiabilityExportRow>> {
     db.prepare(
-        "SELECT wing, name, contractor, starts_on, ends_on, division, subdivision, first_seen_on, missing_since
+        "SELECT wing, name, contractor, agreed_amount, starts_on, ends_on, division, subdivision, first_seen_on, missing_since
          FROM liability_works ORDER BY ends_on, name",
     )
     .all()

@@ -243,6 +243,7 @@ pub fn liability_json(rows: &[LiabilityExportRow]) -> String {
                 "wing": w.wing,
                 "work": w.name,
                 "contractor": w.contractor,
+                "agreed_amount": w.agreed_amount,
                 "liability_starts": w.starts_on,
                 "liability_ends": w.ends_on,
                 "division": w.division,
@@ -252,16 +253,18 @@ pub fn liability_json(rows: &[LiabilityExportRow]) -> String {
             })
         })
         .collect();
-    json!({ "source": kanakku_core::pwd_dlp::SOURCE_URL, "count": works.len(), "works": works }).to_string()
+    json!({ "source": kanakku_core::pwd_dlp::SOURCE_URL, "currency": "INR, whole rupees", "count": works.len(), "works": works }).to_string()
 }
 
 pub fn liability_csv(rows: &[LiabilityExportRow]) -> String {
-    let mut out = String::from("wing,work,contractor,liability_starts,liability_ends,division,subdivision,first_seen_on,missing_since\r\n");
+    let mut out = String::from("wing,work,contractor,agreed_amount,liability_starts,liability_ends,division,subdivision,first_seen_on,missing_since\r\n");
     for w in rows {
+        let amount = w.agreed_amount.map(|a| a.to_string()).unwrap_or_default();
         let cells = [
             w.wing.as_str(),
             w.name.as_str(),
             w.contractor.as_deref().unwrap_or(""),
+            amount.as_str(),
             w.starts_on.as_deref().unwrap_or(""),
             w.ends_on.as_deref().unwrap_or(""),
             w.division.as_deref().unwrap_or(""),

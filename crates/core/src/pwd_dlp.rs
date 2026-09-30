@@ -4,6 +4,9 @@
 //! After a work is finished its contractor stays liable for repairs for a set period. PWD lists
 //! those works per wing, fifty to a page, with the contractor's name and the dates. The page
 //! also prints contact numbers; we never read those into a record.
+//!
+//! The agreed contract amount is in each row's markup but commented out, so PWD's page does not
+//! display it. We read it. The contractor's address, commented out the same way, we do not.
 
 use std::fmt;
 
@@ -37,6 +40,9 @@ pub struct LiabilityWork {
     pub wing: String,
     pub name: String,
     pub contractor: Option<String>,
+    /// The agreed contract amount in whole rupees, where PWD's markup carries one.
+    #[serde(default)]
+    pub agreed_amount: Option<i64>,
     pub starts_on: Option<Date>,
     pub ends_on: Option<Date>,
     pub division: Option<String>,
@@ -114,11 +120,13 @@ pub fn parse_listing(page: &str, wing: &str) -> Result<Listing, ParseError> {
         return if page.contains("id=\"division_off\"") { Ok(Listing { works: Vec::new(), last_page: 1 }) } else { Err(ParseError::NoWorkTable) };
     };
     let body = &page[start..];
-    let body = strip_comments(&body[..body.find("</table>").unwrap_or(body.len())]);
+    let body = &body[..body.find("</table>").unwrap_or(body.len())];
 
     let mut works = Vec::new();
-    for row in body.split("<tr").skip(1) {
-        let cells = cells(row);
+    for raw_row in body.split("<tr").skip(1) {
+        let agreed_amount = commented_amount(raw_row);
+        let row = strip_comments(raw_row);
+        let cells = cells(&row);
         // number, work, start, end, contractor, contractor's phone, division, subdivision, engineer's phone
         if let [number, name, start, end, contractor, _, division, subdivision, ..] = cells.as_slice() {
             if number.parse::<u32>().is_ok() && !name.is_empty() {
@@ -126,6 +134,7 @@ pub fn parse_listing(page: &str, wing: &str) -> Result<Listing, ParseError> {
                     wing: wing.to_string(),
                     name: name.clone(),
                     contractor: some(contractor),
+                    agreed_amount,
                     starts_on: date(start),
                     ends_on: date(end),
                     division: some(division),
@@ -205,6 +214,14 @@ pub fn work_display(name: &str) -> &str {
         }
     }
     name.strip_prefix("GENERAL-").unwrap_or(name).trim()
+}
+
+/// The agreed amount, which sits in the first commented-out cell of a row, right after the work's name.
+fn commented_amount(row: &str) -> Option<i64> {
+    let comment = &row[row.find("<!--")? + 4..];
+    let comment = &comment[..comment.find("-->")?];
+    let value: f64 = cells(comment).first()?.replace(',', "").parse().ok()?;
+    (value.is_finite() && value > 0.0).then(|| value.round() as i64)
 }
 
 fn date(s: &str) -> Option<Date> {
@@ -288,7 +305,7 @@ mod tests {
     const BUILDINGS: &str = include_str!("../tests/fixtures/pwd_dlp_buildings_paged.html");
 
     #[test]
-    fn reads_the_rows_and_skips_commented_out_columns() {
+    fn reads_the_rows_and_the_commented_out_amount() {
         let listing = parse_listing(ROADS, "Roads").unwrap();
         assert_eq!(listing.works.len(), 8);
         assert_eq!(listing.last_page, 1);
@@ -298,6 +315,7 @@ mod tests {
                 wing: "Roads".into(),
                 name: "GENERAL-Restoration Works 2020-21: Surface Rectification and other works in Karukutty Azhakam Road ch 0/000 to 2/000 and Thuravoor Mookanoor Road 0/000 to ch 2/000-WORK-General Civil Work".into(),
                 contractor: Some("REGI T I".into()),
+                agreed_amount: Some(2_777_707),
                 starts_on: Date::parse_iso("2022-01-27"),
                 ends_on: Date::parse_iso("2028-02-27"),
                 division: Some("Roads Division Ernakulam".into()),
@@ -311,6 +329,15 @@ mod tests {
         let listing = parse_listing(ROADS, "Roads").unwrap();
         let stored = serde_json::to_string(&listing.works).unwrap();
         assert!(!stored.contains("0000000000"), "the fixture's stand-in phone number reached a record");
+    }
+
+    #[test]
+    fn a_blank_or_zero_amount_is_not_an_amount() {
+        let row = |comment: &str| format!("<td>1</td><td>Work</td>{comment}<td>01/01/2024</td>");
+        assert_eq!(commented_amount(&row(r#"<!--<td width="25%">4371925.85</td>-->"#)), Some(4_371_926));
+        assert_eq!(commented_amount(&row(r#"<!--<td width="25%"></td>-->"#)), None);
+        assert_eq!(commented_amount(&row(r#"<!--<td width="25%">0</td>-->"#)), None);
+        assert_eq!(commented_amount(&row("")), None);
     }
 
     #[test]

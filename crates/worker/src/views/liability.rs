@@ -1,5 +1,6 @@
 //! Finished PWD works whose contractor is still liable for repairs.
 
+use kanakku_core::fmt::{inr, inr_short};
 use kanakku_core::i18n::Lang;
 use kanakku_core::pwd_dlp::{self as dlp, contractor_display, work_display};
 use kanakku_core::Date;
@@ -146,6 +147,11 @@ pub fn render(lang: Lang, origin: &str, wing: &str, contractor: &str, data: &Lia
                         "ഉറവിടം: കേരള പൊതുമരാമത്ത് വകുപ്പിന്റെ ഡി.എൽ.പി വർക്ക് ലിസ്റ്റ്. ആഴ്ചയിലൊരിക്കൽ ഞങ്ങൾ അത് വായിക്കുന്നു. വകുപ്പിന്റെ താളിലുള്ള ഫോൺ നമ്പറുകൾ ഞങ്ങൾ സൂക്ഷിക്കുകയോ കാണിക്കുകയോ ചെയ്യുന്നില്ല.",
                         "Source: the Kerala Public Works Department's DLP work list, which we read once a week. We do not keep or show the phone numbers printed on PWD's pages.",
                     ))
+                    " "
+                    @match lang {
+                        Lang::Ml => { "കരാർ തുക വകുപ്പിന്റെ താളിന്റെ കോഡിലുണ്ടെങ്കിലും താളിൽ കാണിക്കുന്നില്ല; ഇപ്പോൾ കാലാവധിയിലുള്ള " (totals.active) " പ്രവൃത്തികളിൽ " (totals.with_amount) " എണ്ണത്തിന് മാത്രമേ വകുപ്പ് അത് രേഖപ്പെടുത്തിയിട്ടുള്ളൂ." },
+                        Lang::En => { "The agreed amount sits in the code of PWD's page without being displayed there, and PWD has filled it in for only " (totals.with_amount) " of the " (totals.active) " works now under liability." },
+                    }
                 }
                 div.actions {
                     @if let Some(id) = totals.snapshot_id {
@@ -205,6 +211,11 @@ fn work_row(lang: Lang, row: &LiabilityRow, today: Date, link: &dyn Fn(&str, &st
                         },
                         (None, Some(ends)) => { (lang.pick("ബാധ്യത തീരുന്നത്", "Liable until")) " " b { (ends.to_dmy()) } },
                         _ => (lang.pick("തീയതികൾ പ്രസിദ്ധീകരിച്ചിട്ടില്ല", "Dates not published")),
+                    }
+                }
+                @if let Some(amount) = row.agreed_amount {
+                    span.m {
+                        (lang.pick("കരാർ തുക", "Agreed amount")) " " b { (inr_short(amount, lang)) } " · " (inr(amount))
                     }
                 }
                 @if let Some(left) = left {

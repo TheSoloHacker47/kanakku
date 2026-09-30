@@ -217,7 +217,8 @@ A third source: the Kerala PWD defect-liability (DLP) list, `pwd.kerala.gov.in/I
 |---|---|
 | Phone numbers are never parsed into a record | The pages print contractors' and officers' numbers; they are personal data we have no need for |
 | The stored copy is our extract (TSV), not the page | A stored page would republish those numbers |
-| Columns PWD has commented out in its markup (agreed amount, address) are not read | The department chose not to display them |
+| The agreed contract amount is read, though PWD has commented it out in its markup | Decided by the owner on 30 Sep 2026: it is the public cost of a public work. The page and the methodology say that PWD's own page does not display it. PWD has filled it in for only 2 of the 199 Ernakulam works, so it appears on those rows and in the downloads, not as a headline total |
+| The contractor's address, commented out the same way, is not read | Personal data we have no need for |
 | A work's identity is wing + name + start date + contractor | PWD gives no id. About a fifth of its rows repeat a work, sometimes with the date written differently |
 | Contractors are grouped by a key that ignores titles, case and punctuation | "Shri. P.V. Stephan" and "P V STEPHAN" are one contractor; two people with one name can collide, and the page says so |
 | The division link is written with raw base64, as the site's pager writes it | The site answers "Invalid Page URL" to a percent-encoded value |
