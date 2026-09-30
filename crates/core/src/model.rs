@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::Date;
 
 /// One KIIFB project, identified by its project code. All money is in whole rupees.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Project {
     pub code: String,
     pub title: String,
@@ -18,7 +20,7 @@ pub struct Project {
     pub works: Vec<Work>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Constituency {
     pub name: String,
     pub name_ml: Option<String>,
@@ -27,14 +29,14 @@ pub struct Constituency {
 }
 
 /// A pin on the map. A project can have several.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Site {
     pub lat: f64,
     pub lng: f64,
 }
 
 /// A road or bridge work under a project, from KIIFB's transport layer.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Work {
     pub road_name: Option<String>,
     pub spv: Option<String>,

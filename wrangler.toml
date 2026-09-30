@@ -1,0 +1,31 @@
+name = "kanakku"
+main = "crates/worker/build/index.js"
+compatibility_date = "2026-09-01"
+
+[build]
+command = "cd crates/worker && worker-build --release"
+watch_dir = ["crates"]
+
+[assets]
+directory = "./assets"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kanakku"
+database_id = "00000000-0000-0000-0000-000000000000" # replaced at deploy
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "kanakku"
+
+[triggers]
+crons = ["0 21 * * *"] # 02:30 IST
+
+[vars]
+PILOT_DISTRICT = "Ernakulam"
+CONTACT = "" # a URL or address for the scraper's User-Agent, so KIIFB can reach you
+
+[observability]
+enabled = true

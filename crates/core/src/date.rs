@@ -75,6 +75,20 @@ impl Date {
     }
 }
 
+/// Dates travel as `yyyy-mm-dd` strings, in the database and in the open data.
+impl serde::Serialize for Date {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.to_iso())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Date {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = <std::borrow::Cow<str>>::deserialize(d)?;
+        Date::parse_iso(&s).ok_or_else(|| serde::de::Error::custom("expected a yyyy-mm-dd date"))
+    }
+}
+
 fn days_in_month(y: i32, m: u32) -> u32 {
     match m {
         4 | 6 | 9 | 11 => 30,
@@ -103,6 +117,14 @@ mod tests {
         assert_eq!(d.to_iso(), "2017-11-17");
         assert_eq!(d.to_dmy(), "17-11-2017");
         assert_eq!(Date::parse_iso("2026-01-31T00:00:00Z").unwrap().to_dmy(), "31-01-2026");
+    }
+
+    #[test]
+    fn serialises_as_iso() {
+        let d = Date::parse_dmy("31-01-2026").unwrap();
+        assert_eq!(serde_json::to_string(&d).unwrap(), "\"2026-01-31\"");
+        assert_eq!(serde_json::from_str::<Date>("\"2026-01-31\"").unwrap(), d);
+        assert!(serde_json::from_str::<Date>("\"31-01-2026\"").is_err());
     }
 
     #[test]

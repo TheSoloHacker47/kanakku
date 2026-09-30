@@ -2,6 +2,15 @@
 name = "kanakku-worker"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
+
+[dependencies]
+kanakku-core = { path = "../core" }
+worker = { version = "0.8", features = ["d1"] }
+maud = "0.27"
+sha2 = "0.10"
+serde.workspace = true
+serde_json.workspace = true

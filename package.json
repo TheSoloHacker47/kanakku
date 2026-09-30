@@ -1,0 +1,12 @@
+{
+  "name": "kanakku",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "cargo test -p kanakku-core"
+  },
+  "devDependencies": {
+    "wrangler": "^4.144.0"
+  }
+}

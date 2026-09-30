@@ -119,6 +119,44 @@ pub fn evaluate(project: &Project, today: Date, history: &History) -> Vec<Flag> 
     flags
 }
 
+/// A flag that is currently open in the database.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OpenFlag {
+    pub id: i64,
+    pub kind: FlagKind,
+    pub work_ref: Option<String>,
+    pub value: Value,
+}
+
+/// How to bring the stored open flags of one project in line with a fresh evaluation.
+#[derive(Debug, Default, PartialEq)]
+pub struct Reconciled {
+    /// Newly raised.
+    pub raise: Vec<Flag>,
+    /// Still raised, with figures that moved (such as days overdue): `(id, new value)`.
+    pub update: Vec<(i64, Value)>,
+    /// No longer raised: ids to clear.
+    pub clear: Vec<i64>,
+}
+
+pub fn reconcile(open: &[OpenFlag], computed: Vec<Flag>) -> Reconciled {
+    let mut out = Reconciled::default();
+    let mut still_open = vec![false; open.len()];
+    for flag in computed {
+        match open.iter().position(|o| o.kind == flag.kind && o.work_ref == flag.work_ref) {
+            Some(i) => {
+                still_open[i] = true;
+                if open[i].value != flag.value {
+                    out.update.push((open[i].id, flag.value));
+                }
+            }
+            None => out.raise.push(flag),
+        }
+    }
+    out.clear = open.iter().zip(still_open).filter(|(_, keep)| !keep).map(|(o, _)| o.id).collect();
+    out
+}
+
 fn round1(v: f64) -> f64 {
     (v * 10.0).round() / 10.0
 }
@@ -219,6 +257,28 @@ mod tests {
         assert_eq!(flags[0].value["days"], 90);
         assert!(evaluate(&project(vec![approved]), today, &h("2020-01-01")).is_empty());
         assert!(evaluate(&project(vec![]), today, &h("2020-01-01")).is_empty());
+    }
+
+    #[test]
+    fn reconcile_raises_updates_and_clears() {
+        let flag = |kind, work: Option<&str>, value: Value| Flag { kind, work_ref: work.map(String::from), value };
+        let open = [
+            OpenFlag { id: 1, kind: FlagKind::Overdue, work_ref: Some("A".into()), value: json!({"days_overdue": 10}) },
+            OpenFlag { id: 2, kind: FlagKind::Overdue, work_ref: Some("B".into()), value: json!({"days_overdue": 5}) },
+            OpenFlag { id: 3, kind: FlagKind::Stale, work_ref: None, value: json!({"days": 95}) },
+        ];
+        let computed = vec![
+            flag(FlagKind::Overdue, Some("A"), json!({"days_overdue": 11})),
+            flag(FlagKind::Stale, None, json!({"days": 95})),
+            flag(FlagKind::PaymentVsProgress, Some("A"), json!({"gap_points": 30.0})),
+        ];
+        let r = reconcile(&open, computed);
+        assert_eq!(r.update, [(1, json!({"days_overdue": 11}))]);
+        assert_eq!(r.clear, [2]);
+        assert_eq!(r.raise.len(), 1);
+        assert_eq!(r.raise[0].kind, FlagKind::PaymentVsProgress);
+
+        assert_eq!(reconcile(&[], vec![]), Reconciled::default());
     }
 
     #[test]
