@@ -64,7 +64,7 @@
         });
       // A link such as /map#PWD016-05-01 opens on that project.
       if (found.length) {
-        map.setView(found[0].getLatLng(), 14);
+        map.setView(found[0].getLatLng(), 14, { animate: false });
         found[0].openPopup();
       }
     });
