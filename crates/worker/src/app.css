@@ -7,7 +7,7 @@
   --field: #f1f2f2;
   --flag: #ff7f41;
   --flag-ink: #a23a05;
-  --gutter: 16px;
+  --gutter: clamp(16px, 5vw, 72px);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -90,6 +90,7 @@ summary { cursor: pointer; padding: 10px 0; font-size: 0.9375rem; text-decoratio
   .ledger .amt { grid-row: 1; }
   .ledger .meta, .ledger .tags { grid-column: 1; }
 }
+.ledger .amt small { display: block; font-size: 0.75rem; color: var(--muted); white-space: normal; max-width: 9rem; margin-left: auto; line-height: 1.3; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .tag { border: 1px solid var(--flag); color: var(--flag-ink); font-size: 0.75rem; padding: 1px 7px; line-height: 1.5; }
 .flagged { color: var(--flag-ink); }

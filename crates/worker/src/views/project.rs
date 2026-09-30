@@ -2,7 +2,7 @@ use kanakku_core::flags::FlagKind;
 use kanakku_core::fmt::{inr, inr_short, pct};
 use kanakku_core::gaps;
 use kanakku_core::i18n::{flag_explain, flag_label, flag_rule, Lang};
-use kanakku_core::model::{Project, Work};
+use kanakku_core::model::{Headline, Project, Work};
 use kanakku_core::{kiifb, Date};
 use maud::{html, Markup};
 
@@ -13,7 +13,7 @@ use crate::http::encode_segment;
 pub fn render(lang: Lang, project: &Project, data: &ProjectPage) -> String {
     let t = lang.t();
     let row = &data.row;
-    let headline = project.estimated_amount.or(project.works_amount());
+    let headline = project.headline();
     let open_flags = data.flags.iter().filter(|f| f.status == "open").count();
     let gaps = gaps::find(project);
     let retrieved = Date::from_utc_timestamp_ist(&row.fetched_at).map(Date::to_dmy);
@@ -33,11 +33,15 @@ pub fn render(lang: Lang, project: &Project, data: &ProjectPage) -> String {
             }
         }
 
-        @if let Some(amount) = headline {
+        @if let Some((amount, kind)) = headline {
             p.figure {
                 b { (inr_short(amount, lang)) }
                 span.small {
-                    @if project.estimated_amount.is_some() { (t.estimated_amount) } @else { (t.works_total) }
+                    @match kind {
+                        Headline::Estimate => (t.estimated_amount),
+                        Headline::Spent => (lang.pick("ഈ പാക്കേജിന് രേഖപ്പെടുത്തിയ ചെലവ്", "Expenditure reported for this package")),
+                        Headline::WorksTotal => (t.works_total),
+                    }
                     " · " (inr(amount)) " · "
                     a href="#source" { (t.sources) }
                 }
@@ -86,18 +90,43 @@ pub fn render(lang: Lang, project: &Project, data: &ProjectPage) -> String {
         section aria-labelledby="money" {
             h2 #money { (t.money_trail) }
             dl.rows {
-                (amount_row(lang, t.estimated_amount, project.estimated_amount, true))
                 div {
-                    dt { (t.expenditure) }
+                    dt { (t.estimated_amount) }
+                    dd {
+                        @match project.estimated_amount {
+                            Some(a) => {
+                                (inr(a))
+                                small { @if project.estimate_is_shared() { (shared_note(lang, project)) } @else { (inr_short(a, lang)) } }
+                            },
+                            None => span.none { (t.not_reported) },
+                        }
+                    }
+                }
+                div {
+                    dt { (t.expenditure) @if project.estimate_is_shared() { " · " (lang.pick("ഈ പാക്കേജ്", "this package")) } }
                     dd {
                         @match project.expenditure {
                             Some(spent) => {
                                 (inr(spent))
-                                @if let Some(estimate) = project.estimated_amount.filter(|e| *e > 0) {
-                                    small { (pct(spent as f64 / estimate as f64 * 100.0)) " " (t.spent_share) }
-                                }
+                                @if !project.estimate_is_shared() { (share(lang, spent, project.estimated_amount)) }
                             },
                             None => span.none { (t.not_reported) },
+                        }
+                    }
+                }
+                @if project.estimate_is_shared() {
+                    div {
+                        dt {
+                            @match lang {
+                                Lang::Ml => { (t.expenditure) " · എല്ലാ " (project.estimate_shared_by) " പാക്കേജുകളും" },
+                                Lang::En => { (t.expenditure) " · all " (project.estimate_shared_by) " packages" },
+                            }
+                        }
+                        dd {
+                            @match project.group_expenditure {
+                                Some(spent) => { (inr(spent)) (share(lang, spent, project.estimated_amount)) },
+                                None => span.none { (t.not_reported) },
+                            }
                         }
                     }
                 }
@@ -228,6 +257,26 @@ pub fn render(lang: Lang, project: &Project, data: &ProjectPage) -> String {
         },
         body,
     )
+}
+
+/// "Estimate of sub-project AGR001-01, shared by 4 contract packages".
+fn shared_note(lang: Lang, project: &Project) -> Markup {
+    let sub = project.sub_project_code.as_deref().unwrap_or("");
+    html! {
+        @match lang {
+            Lang::Ml => { "ഉപപദ്ധതി " span.code { (sub) } "-ന്റെ കണക്കാക്കിയ തുക; " (project.estimate_shared_by) " കരാർ പാക്കേജുകൾക്ക് പൊതുവായത്" },
+            Lang::En => { "Estimate of sub-project " span.code { (sub) } ", shared by " (project.estimate_shared_by) " contract packages" },
+        }
+    }
+}
+
+/// "58.4% of the estimated amount", when there is an estimate to compare with.
+fn share(lang: Lang, spent: i64, estimate: Option<i64>) -> Markup {
+    html! {
+        @if let Some(estimate) = estimate.filter(|e| *e > 0) {
+            small { (pct(spent as f64 / estimate as f64 * 100.0)) " " (lang.t().spent_share) }
+        }
+    }
 }
 
 fn work(lang: Lang, w: &Work, index: usize) -> Markup {

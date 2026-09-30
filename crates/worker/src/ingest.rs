@@ -201,14 +201,17 @@ async fn upsert_projects(
         statements.push(query!(
             db,
             "INSERT INTO projects (code, title_en, department, sector, executing_agency, district, estimated_amount, expenditure,
-                                   works_amount, official_status, first_estimated_amount, first_seen_on, changed_on, snapshot_id, record_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?7, ?11, ?11, ?12, ?13)
+                                   works_amount, official_status, first_estimated_amount, first_seen_on, changed_on, snapshot_id, record_json,
+                                   sub_project_code, estimate_shared_by, headline_amount)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?7, ?11, ?11, ?12, ?13, ?14, ?15, ?16)
              ON CONFLICT(code) DO UPDATE SET
                title_en = excluded.title_en, department = excluded.department, sector = excluded.sector,
                executing_agency = excluded.executing_agency, district = excluded.district,
                estimated_amount = excluded.estimated_amount, expenditure = excluded.expenditure,
                works_amount = excluded.works_amount, official_status = excluded.official_status,
                first_estimated_amount = COALESCE(projects.first_estimated_amount, excluded.estimated_amount),
+               sub_project_code = excluded.sub_project_code, estimate_shared_by = excluded.estimate_shared_by,
+               headline_amount = excluded.headline_amount,
                changed_on = excluded.changed_on, missing_since = NULL,
                snapshot_id = excluded.snapshot_id, record_json = excluded.record_json",
             code,
@@ -224,6 +227,9 @@ async fn upsert_projects(
             today,
             snapshot_id,
             record,
+            project.sub_project_code,
+            project.estimate_shared_by.max(1),
+            project.headline().map(|(amount, _)| amount).unwrap_or(0),
         )?);
         push_children(db, project, &mut statements)?;
     }

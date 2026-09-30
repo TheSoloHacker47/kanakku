@@ -33,9 +33,12 @@ CREATE TABLE projects (
   executing_agency       TEXT,
   funding_source         TEXT NOT NULL DEFAULT 'KIIFB',
   district               TEXT NOT NULL,
-  estimated_amount       INTEGER,
+  estimated_amount       INTEGER,            -- stated per sub-project; sibling packages repeat it
+  sub_project_code       TEXT,
+  estimate_shared_by     INTEGER NOT NULL DEFAULT 1, -- packages statewide that carry this same estimate
   expenditure            INTEGER,
   works_amount           INTEGER,            -- sum of works' financial sanction, when KIIFB lists only works
+  headline_amount        INTEGER NOT NULL DEFAULT 0, -- the figure the list shows and sorts by
   official_status        TEXT,
   flag_count             INTEGER NOT NULL DEFAULT 0,
   first_estimated_amount INTEGER,            -- the estimate in the first snapshot we recorded
@@ -45,7 +48,7 @@ CREATE TABLE projects (
   snapshot_id            INTEGER NOT NULL REFERENCES snapshots(id),
   record_json            TEXT NOT NULL       -- the normalised source record, used to detect changes
 );
-CREATE INDEX projects_by_rank ON projects(flag_count DESC, estimated_amount DESC);
+CREATE INDEX projects_by_rank ON projects(flag_count DESC, headline_amount DESC, code);
 CREATE INDEX projects_by_department ON projects(department);
 CREATE INDEX projects_by_status ON projects(official_status);
 

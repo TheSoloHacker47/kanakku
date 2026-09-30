@@ -72,7 +72,7 @@ pub fn project_json(project: &Project, data: &ProjectPage) -> String {
 
 pub fn projects_csv(rows: &[ExportRow]) -> String {
     let mut out = String::from(
-        "code,title,department,sector,executing_agency,district,constituencies,estimated_amount,expenditure,works_amount,status,works,contractors,open_flags,latitude,longitude,first_seen_on,changed_on,missing_since\r\n",
+        "code,title,department,sector,executing_agency,district,constituencies,estimated_amount,sub_project_code,estimate_shared_by,sub_project_expenditure,expenditure,works_amount,status,works,contractors,open_flags,latitude,longitude,first_seen_on,changed_on,missing_since\r\n",
     );
     for row in rows {
         let Ok(p) = serde_json::from_str::<Project>(&row.record_json) else { continue };
@@ -94,6 +94,9 @@ pub fn projects_csv(rows: &[ExportRow]) -> String {
             p.district.clone(),
             join(p.constituencies.iter().map(|c| c.name.as_str()).collect()),
             num(p.estimated_amount),
+            p.sub_project_code.clone().unwrap_or_default(),
+            p.estimate_shared_by.to_string(),
+            num(p.group_expenditure),
             num(p.expenditure),
             num(p.works_amount()),
             p.status.clone().unwrap_or_default(),
@@ -137,7 +140,7 @@ pub fn projects_geojson(rows: &[ExportRow]) -> String {
     for row in rows {
         let Ok(p) = serde_json::from_str::<Project>(&row.record_json) else { continue };
         let flags = flag_list(row.flag_types.as_deref());
-        let amount = p.estimated_amount.or(p.works_amount());
+        let amount = p.headline().map(|(amount, _)| amount);
         let mut point = |lat: f64, lng: f64, work: Option<String>| {
             features.push(json!({
                 "type": "Feature",

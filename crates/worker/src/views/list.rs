@@ -1,6 +1,7 @@
 use kanakku_core::flags::FlagKind;
 use kanakku_core::fmt::inr_short;
 use kanakku_core::i18n::{flag_label, Lang};
+use kanakku_core::model::{headline, Headline};
 use maud::{html, Markup};
 use worker::url::form_urlencoded;
 
@@ -76,8 +77,8 @@ pub fn render(lang: Lang, filter: &Filter, listing: &Listing) -> String {
                         a href=(format!("{}/p/{}", lang.prefix(), encode_segment(&row.code))) {
                             span.t lang="en" { (row.title_en) }
                             span.amt {
-                                @match row.estimated_amount.or(row.works_amount) {
-                                    Some(amount) => (inr_short(amount, lang)),
+                                @match headline(row.estimated_amount, row.estimate_shared_by, row.expenditure, row.works_amount) {
+                                    Some((amount, kind)) => { (inr_short(amount, lang)) small { (headline_label(lang, kind)) } },
                                     None => span.none { "—" },
                                 }
                             }
@@ -124,6 +125,15 @@ pub fn render(lang: Lang, filter: &Filter, listing: &Listing) -> String {
         },
         body,
     )
+}
+
+/// Says what a row's figure is, because it differs between rows.
+pub fn headline_label(lang: Lang, kind: Headline) -> &'static str {
+    match kind {
+        Headline::Estimate => lang.pick("കണക്കാക്കിയ തുക", "estimate"),
+        Headline::Spent => lang.pick("ഇതുവരെ ചെലവ്", "spent so far"),
+        Headline::WorksTotal => lang.pick("പ്രവൃത്തികളുടെ ആകെ", "total of works"),
+    }
 }
 
 fn select(lang: Lang, name: &str, label: &str, facets: &[Facet], current: &str) -> Markup {

@@ -32,7 +32,9 @@ pub struct ListRow {
     pub title_en: String,
     pub executing_agency: Option<String>,
     pub estimated_amount: Option<i64>,
+    pub expenditure: Option<i64>,
     pub works_amount: Option<i64>,
+    pub estimate_shared_by: u32,
     pub official_status: Option<String>,
     pub constituencies: Option<String>,
     pub flag_types: Option<String>,
@@ -69,11 +71,11 @@ pub async fn list(db: &D1Database, filter: &Filter) -> Result<Listing> {
 
     let rows = db
         .prepare(format!(
-            "SELECT p.code, p.title_en, p.executing_agency, p.estimated_amount, p.works_amount, p.official_status,
+            "SELECT p.code, p.title_en, p.executing_agency, p.estimated_amount, p.expenditure, p.works_amount, p.estimate_shared_by, p.official_status,
                     (SELECT group_concat(name, ', ') FROM project_constituencies c WHERE c.project_id = p.id) AS constituencies,
                     (SELECT group_concat(DISTINCT type) FROM flags f WHERE f.project_id = p.id AND f.status = 'open') AS flag_types
              FROM projects p {clause}
-             ORDER BY p.flag_count DESC, COALESCE(p.estimated_amount, p.works_amount, 0) DESC, p.code
+             ORDER BY p.flag_count DESC, p.headline_amount DESC, p.code
              LIMIT ?{limit} OFFSET ?{offset}"
         ))
         .bind(&page_binds)?;

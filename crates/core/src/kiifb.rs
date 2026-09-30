@@ -4,7 +4,7 @@
 //! `MARKERS` (project pins) and `TRANSPORT_GEOJSON` (road and bridge works).
 //! We slice those JSON values out of the page and read them with serde.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::ops::Range;
 
@@ -53,6 +53,18 @@ pub fn parse(page: &[u8], district: &str) -> Result<Parsed, ParseError> {
     let markers_total = markers.len();
     let works_total = transport.features.len();
 
+    // The estimate is stated per sub-project and repeated on each of its packages, anywhere in
+    // the state. Count the packages behind each (sub-project, estimate) pair and add up their spending.
+    let mut groups: HashMap<(String, i64), Group> = HashMap::new();
+    for m in &markers {
+        let (Some(code), Some(key)) = (m.proj.code.as_ref(), group_key(&m.proj)) else { continue };
+        let group = groups.entry(key).or_default();
+        if !group.codes.contains(code) {
+            group.codes.push(code.clone());
+            group.expenditure += rupees(m.proj.expenditure, 1.0).unwrap_or(0);
+        }
+    }
+
     let mut projects: BTreeMap<String, Project> = BTreeMap::new();
 
     for m in markers {
@@ -60,7 +72,17 @@ pub fn parse(page: &[u8], district: &str) -> Result<Parsed, ParseError> {
             continue;
         }
         let Some(code) = m.proj.code.clone() else { continue };
-        let project = projects.entry(code.clone()).or_insert_with(|| project_from_marker(code, &m, district));
+        let project = projects.entry(code.clone()).or_insert_with(|| {
+            let mut project = project_from_marker(code, &m, district);
+            match group_key(&m.proj).and_then(|key| groups.get(&key)) {
+                Some(group) => {
+                    project.estimate_shared_by = group.codes.len() as u32;
+                    project.group_expenditure = (group.expenditure > 0).then_some(group.expenditure);
+                }
+                None => project.estimate_shared_by = 1,
+            }
+            project
+        });
         if let Some(name) = m.proj.constituency.clone().or_else(|| clean(&m.c)) {
             let link = m.link.as_ref();
             add_constituency(
@@ -92,7 +114,15 @@ pub fn parse(page: &[u8], district: &str) -> Result<Parsed, ParseError> {
         if let Some(name) = p.lac.clone() {
             add_constituency(project, Constituency { name, ..Constituency::default() });
         }
-        project.works.push(work_from_props(p, mid));
+        let work = work_from_props(p, mid);
+        match project.works.iter_mut().find(|known| work.is_segment_of(known)) {
+            Some(known) => {
+                if known.road_name.is_none() {
+                    known.road_name = work.road_name;
+                }
+            }
+            None => project.works.push(work),
+        }
     }
 
     Ok(Parsed {
@@ -135,6 +165,16 @@ fn same_district(value: &str, district: &str) -> bool {
     value.trim().eq_ignore_ascii_case(district)
 }
 
+#[derive(Default)]
+struct Group {
+    codes: Vec<String>,
+    expenditure: i64,
+}
+
+fn group_key(proj: &ProjRaw) -> Option<(String, i64)> {
+    Some((proj.sub_code.clone()?, rupees(proj.estimated_amount, 1.0)?))
+}
+
 /// Adds a constituency once. A marker's entry carries the MLA, a work's only the name.
 fn add_constituency(project: &mut Project, c: Constituency) {
     if !project.constituencies.iter().any(|known| known.name.eq_ignore_ascii_case(&c.name)) {
@@ -150,13 +190,14 @@ fn project_from_marker(code: String, m: &MarkerRaw, district: &str) -> Project {
         sector: m.dept_sector.clone().or_else(|| m.proj.sector.clone()),
         executing_agency: m.proj.executing_authority.clone(),
         district: district.to_string(),
-        constituencies: Vec::new(),
         // Labelled "(Cr)" on the dashboard, but the values are rupees.
         estimated_amount: rupees(m.proj.estimated_amount, 1.0),
+        sub_project_code: m.proj.sub_code.clone(),
+        estimate_shared_by: 1,
+        group_expenditure: None,
         expenditure: rupees(m.proj.expenditure, 1.0),
         status: m.proj.status.clone().or_else(|| m.s.clone()),
-        sites: Vec::new(),
-        works: Vec::new(),
+        ..Project::default()
     }
 }
 
@@ -249,6 +290,8 @@ struct ProjRaw {
     department: Option<String>,
     #[serde(rename = "Sector Dept", default, deserialize_with = "text")]
     sector: Option<String>,
+    #[serde(rename = "Sub Proj Code", default, deserialize_with = "text")]
+    sub_code: Option<String>,
     #[serde(rename = "Proj Code", default, deserialize_with = "text")]
     code: Option<String>,
 }
@@ -501,6 +544,47 @@ mod tests {
     #[test]
     fn missing_segment_is_an_error() {
         assert!(matches!(parse(b"<html></html>", "Ernakulam"), Err(ParseError::SegmentMissing("MARKERS"))));
+    }
+
+    const SMALL_PAGE: &str = r#"<script>
+const MARKERS = [
+ {"lat":10.0,"lng":76.3,"d":"Ernakulam","c":"Aluva","proj":{"Project Name":"Park, civil","Estimated Amount (Cr)":1000,"Expenditure":100,"Sub Proj Code":"AGR001-01","Proj Code":"AGR001-01-01"},"link":[]},
+ {"lat":10.5,"lng":76.2,"d":"Thrissur","c":"Ollur","proj":{"Project Name":"Park, electrical","Estimated Amount (Cr)":1000,"Expenditure":50,"Sub Proj Code":"AGR001-01","Proj Code":"AGR001-01-02"},"link":[]},
+ {"lat":10.5,"lng":76.2,"d":"Thrissur","c":"Thrissur","proj":{"Project Name":"Park, electrical","Estimated Amount (Cr)":1000,"Expenditure":50,"Sub Proj Code":"AGR001-01","Proj Code":"AGR001-01-02"},"link":[]},
+ {"lat":10.1,"lng":76.4,"d":"Ernakulam","c":"Aluva","proj":{"Project Name":"School","Estimated Amount (Cr)":500,"Sub Proj Code":"EDU002-01","Proj Code":"EDU002-01-01"},"link":[]}
+];
+const TRANSPORT_GEOJSON = {"type":"FeatureCollection","features":[
+ {"type":"Feature","properties":{"Proj_Code":"PWD015-102-02","Proj_Name":"182 Roads","District":"Ernakulam","LAC":"Aluva","FS_Amount":9.5,"Contr_Amnt":9.1,"Status":"Inprogress","Road_Name":null},"geometry":{"type":"MultiLineString","coordinates":[[[76.3,10.0,0]]]}},
+ {"type":"Feature","properties":{"Proj_Code":"PWD015-102-02","Proj_Name":"182 Roads","District":"Ernakulam","LAC":"Aluva","FS_Amount":9.5,"Contr_Amnt":9.1,"Status":"Inprogress","Road_Name":"Over bridge"},"geometry":{"type":"MultiLineString","coordinates":[[[76.4,10.1,0]]]}},
+ {"type":"Feature","properties":{"Proj_Code":"PWD015-102-02","Proj_Name":"182 Roads","District":"Ernakulam","LAC":"Aluva","FS_Amount":4.0,"Status":"Approved","Road_Name":"Link road"},"geometry":{"type":"MultiLineString","coordinates":[[[76.5,10.2,0]]]}}
+]};
+</script>"#;
+
+    #[test]
+    fn an_estimate_repeated_on_sibling_packages_is_counted_once_per_package_statewide() {
+        let parsed = parse(SMALL_PAGE.as_bytes(), "Ernakulam").unwrap();
+        let park = &parsed.projects[0];
+        assert_eq!(park.code, "AGR001-01-01");
+        assert_eq!(park.sub_project_code.as_deref(), Some("AGR001-01"));
+        assert_eq!(park.estimate_shared_by, 2, "the Thrissur package counts, and its second pin does not");
+        assert!(park.estimate_is_shared());
+        assert_eq!(park.expenditure, Some(100));
+        assert_eq!(park.group_expenditure, Some(150));
+
+        let school = &parsed.projects[1];
+        assert_eq!(school.estimate_shared_by, 1);
+        assert!(!school.estimate_is_shared());
+        assert_eq!(school.group_expenditure, None);
+    }
+
+    #[test]
+    fn line_segments_of_one_contract_are_one_work() {
+        let parsed = parse(SMALL_PAGE.as_bytes(), "Ernakulam").unwrap();
+        let roads = parsed.projects.iter().find(|p| p.code == "PWD015-102-02").unwrap();
+        let names: Vec<_> = roads.works.iter().map(|w| w.road_name.as_deref()).collect();
+        assert_eq!(names, [Some("Over bridge"), Some("Link road")]);
+        assert_eq!(roads.works_amount(), Some(135_000_000));
+        assert_eq!(roads.estimate_shared_by, 0, "no estimate is published for works-only projects");
     }
 
     #[test]
