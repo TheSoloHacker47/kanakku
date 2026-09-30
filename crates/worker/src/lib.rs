@@ -93,6 +93,12 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
     let checked = || async { db::last_checked(&db).await };
 
     match rest {
+        // The list used to live at the root; keep old search and filter links working.
+        "/" if req.url()?.query().is_some_and(|q| !q.is_empty()) => {
+            let mut to = req.url()?;
+            to.set_path(&format!("{}/projects", lang.prefix()));
+            Response::redirect_with_status(to, 301)
+        }
         "/" => http::html(views::home::render(lang, origin, &db::home(&db).await?), 200, Policy::Page),
         "/projects" => {
             let filter = filter_from(req)?;
