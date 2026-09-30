@@ -82,6 +82,10 @@ impl Date {
     pub fn days_since(self, earlier: Date) -> i32 {
         self.0 - earlier.0
     }
+
+    pub fn plus_days(self, days: i32) -> Date {
+        Date(self.0 + days)
+    }
 }
 
 /// Dates travel as `yyyy-mm-dd` strings, in the database and in the open data.

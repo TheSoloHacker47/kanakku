@@ -198,3 +198,29 @@ Result on 30 Sep 2026: 53 of 140 status projects joined, covering 204 of the 306
 | Totals are labelled as not Ernakulam's alone | School clusters and similar projects span districts |
 
 **Pages:** `/funding` (list, four sort orders), `/f/{ref}` (one project and its works), a section on `/p/{code}` for joined packages, a block on the front page, `/api/v1/funding` and `/api/v1/funding.csv`.
+
+## Build 4: who must repair it (PER-850)
+
+A third source: the Kerala PWD defect-liability (DLP) list, `pwd.kerala.gov.in/IMF_website/Projects/wings_list.php`.
+
+**What it adds.** Finished PWD works whose contractor must still repair defects: work, contractor, liability dates, division. 199 distinct works for the Ernakulam-area divisions on 30 Sep 2026, 46 of them ending within 90 days.
+
+**How it is read** (`crates/worker/src/liability.rs`)
+
+- One request per wing finds its divisions. Each division named after Ernakulam, Aluva or Muvattupuzha is then read page by page through the site's own pager links. 22 requests in all, a second apart.
+- Weekly. The nightly trigger skips it unless the last read is over six and a half days old. `POST /admin/ingest?source=liability` forces a read.
+- PWD spells divisions several ways ("Buildings Division Ernakulam", "Buildings Division, Ernakulam") and each spelling holds different works, so every spelling is read.
+
+**Decisions**
+
+| Decision | Why |
+|---|---|
+| Phone numbers are never parsed into a record | The pages print contractors' and officers' numbers; they are personal data we have no need for |
+| The stored copy is our extract (TSV), not the page | A stored page would republish those numbers |
+| Columns PWD has commented out in its markup (agreed amount, address) are not read | The department chose not to display them |
+| A work's identity is wing + name + start date + contractor | PWD gives no id. About a fifth of its rows repeat a work, sometimes with the date written differently |
+| Contractors are grouped by a key that ignores titles, case and punctuation | "Shri. P.V. Stephan" and "P V STEPHAN" are one contractor; two people with one name can collide, and the page says so |
+| The division link is written with raw base64, as the site's pager writes it | The site answers "Invalid Page URL" to a percent-encoded value |
+| No top-level nav item | Five already fill a phone's width; the page is linked from the front page and footer |
+
+**Pages:** `/liability` (filters by wing and contractor, soonest to end first), a block on the front page, `/api/v1/liability` and `/api/v1/liability.csv`.

@@ -16,6 +16,7 @@ use crate::{district, icons};
 
 pub mod funding;
 pub mod home;
+pub mod liability;
 pub mod list;
 pub mod pages;
 pub mod project;
@@ -113,6 +114,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                                 li { a href=(href("/projects")) { (t.nav_projects) } }
                                 li { a href=(href("/projects?flag=any")) { (lang.pick("സൂചനയുള്ള പദ്ധതികൾ", "Flagged projects")) } }
                                 li { a href=(href("/funding")) { (funding::title(lang)) } }
+                                li { a href=(href("/liability")) { (liability::title(lang)) } }
                                 li { a href=(href("/map")) { (t.nav_map) } }
                                 li { a href=(href("/methodology")) { (t.nav_methodology) } }
                                 li { a href=(href("/data")) { (t.nav_data) } }
@@ -127,6 +129,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                                     (lang.pick("അവസാനം പരിശോധിച്ചത്", "Last checked")) ": "
                                     @match &checked { Some(date) => (date), None => "—" }
                                 }
+                                li { a href="https://www.pwd.kerala.gov.in/IMF_website/Projects/wings_list.php" rel="noopener" { (lang.pick("പി.ഡബ്ല്യു.ഡി ഡി.എൽ.പി പട്ടിക", "PWD liability list")) } }
                                 li { (lang.pick("ഭൂപടം", "Maps")) ": © OpenStreetMap" }
                             }
                         }

@@ -71,6 +71,12 @@ The same trigger then reads KIIFB's project status page (`https://www.kiifb.org/
 curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" "https://<your-domain>/admin/ingest?source=status&details=40"
 ```
 
+Once a week it also reads the Kerala PWD defect-liability list for the district's divisions (22 requests). To force a read:
+
+```sh
+curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" "https://<your-domain>/admin/ingest?source=liability"
+```
+
 If KIIFB blocks Cloudflare's addresses, fetch the page from a machine in India and push it instead:
 
 ```bash

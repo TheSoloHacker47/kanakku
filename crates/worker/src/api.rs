@@ -5,7 +5,7 @@ use kanakku_core::kiifb_status::{self, FundedProject};
 use kanakku_core::model::Project;
 use serde_json::{json, Value};
 
-use crate::db::{ExportRow, FundingExportRow, ProjectPage};
+use crate::db::{ExportRow, FundingExportRow, LiabilityExportRow, ProjectPage};
 
 fn flag_list(types: Option<&str>) -> Vec<&str> {
     types.map(|t| t.split(',').collect()).unwrap_or_default()
@@ -231,6 +231,51 @@ pub fn funding_csv(rows: &[FundingExportRow]) -> String {
                 num(w.paid),
             ]);
         }
+    }
+    out
+}
+
+pub fn liability_json(rows: &[LiabilityExportRow]) -> String {
+    let works: Vec<Value> = rows
+        .iter()
+        .map(|w| {
+            json!({
+                "wing": w.wing,
+                "work": w.name,
+                "contractor": w.contractor,
+                "liability_starts": w.starts_on,
+                "liability_ends": w.ends_on,
+                "division": w.division,
+                "subdivision": w.subdivision,
+                "first_seen_on": w.first_seen_on,
+                "missing_since": w.missing_since,
+            })
+        })
+        .collect();
+    json!({ "source": kanakku_core::pwd_dlp::SOURCE_URL, "count": works.len(), "works": works }).to_string()
+}
+
+pub fn liability_csv(rows: &[LiabilityExportRow]) -> String {
+    let mut out = String::from("wing,work,contractor,liability_starts,liability_ends,division,subdivision,first_seen_on,missing_since\r\n");
+    for w in rows {
+        let cells = [
+            w.wing.as_str(),
+            w.name.as_str(),
+            w.contractor.as_deref().unwrap_or(""),
+            w.starts_on.as_deref().unwrap_or(""),
+            w.ends_on.as_deref().unwrap_or(""),
+            w.division.as_deref().unwrap_or(""),
+            w.subdivision.as_deref().unwrap_or(""),
+            w.first_seen_on.as_str(),
+            w.missing_since.as_deref().unwrap_or(""),
+        ];
+        for (i, cell) in cells.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            push_cell(&mut out, cell);
+        }
+        out.push_str("\r\n");
     }
     out
 }

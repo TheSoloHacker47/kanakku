@@ -131,6 +131,8 @@ main { padding-bottom: 80px; }
 .row .amt { grid-column: 2; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 2px; }
 .row .amt b { font: 800 1.35rem/1.1 var(--display); }
 .row .amt span { font-size: 0.8125rem; color: var(--muted); }
+div.row:hover { background: none; }
+div.row:hover .t { text-decoration: none; }
 .row .bar { grid-column: 2; max-width: 22rem; margin-top: 6px; }
 .row .tags { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 @media (min-width: 52rem) {

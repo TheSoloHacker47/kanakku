@@ -9,7 +9,7 @@ use kanakku_core::Date;
 use maud::{html, Markup, PreEscaped};
 use worker::url::form_urlencoded::byte_serialize;
 
-use super::{big_amount, department_icon, dot_map, en, funding, icon, layout, meter, project_row, Nav, Page};
+use super::{big_amount, department_icon, dot_map, en, funding, icon, layout, liability, meter, project_row, Nav, Page};
 use crate::db::Home;
 use crate::http::encode_segment;
 use crate::icons;
@@ -120,6 +120,23 @@ pub fn render(lang: Lang, origin: &str, data: &Home) -> String {
                         a.more href=(format!("{p}/funding")) { (lang.pick("ഓരോ പദ്ധതിയും", "Project by project")) (icon(icons::ARROW_RIGHT)) }
                     }
                     (funding::totals_panels(lang, &data.funding, true))
+                }
+            }
+
+            @if data.liability > 0 {
+                section.sec {
+                    div.sec-h {
+                        div {
+                            h2.d2 { (liability::title(lang)) }
+                            p {
+                                @match lang {
+                                    Lang::Ml => { "പൂർത്തിയായ " b { (data.liability) } " പൊതുമരാമത്ത് പ്രവൃത്തികളിൽ തകരാർ വന്നാൽ പരിഹരിക്കാൻ കരാറുകാരന് ഇപ്പോഴും ബാധ്യതയുണ്ട്. ഏത് റോഡ്, ഏത് കെട്ടിടം, ഏത് കരാറുകാരൻ, എന്നു വരെ." },
+                                    Lang::En => { "For " b { (data.liability) } " finished PWD works in the district, the contractor is still on PWD's liability list. Which road or building, which contractor, and until when." },
+                                }
+                            }
+                        }
+                        a.more href=(format!("{p}/liability")) { (lang.pick("പട്ടിക കാണുക", "See the list")) (icon(icons::ARROW_RIGHT)) }
+                    }
                 }
             }
 

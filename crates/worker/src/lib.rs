@@ -14,6 +14,7 @@ mod funding;
 mod http;
 mod icons;
 mod ingest;
+mod liability;
 mod views;
 
 use http::Policy;
@@ -46,6 +47,10 @@ async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     match funding::run(&env, funding::DEFAULT_DETAILS).await {
         Ok(report) => console_log!("status ingest ok: {}", serde_json::to_string(&report).unwrap_or_default()),
         Err(e) => console_error!("status ingest failed: {e}"),
+    }
+    match liability::run(&env, false).await {
+        Ok(report) => console_log!("liability ingest ok: {}", serde_json::to_string(&report).unwrap_or_default()),
+        Err(e) => console_error!("liability ingest failed: {e}"),
     }
 }
 
@@ -119,6 +124,16 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             let (rows, totals) = db::funding_list(&db, sort).await?;
             http::html(views::funding::list(lang, origin, sort, &rows, &totals), 200, Policy::Page)
         }
+        "/liability" => {
+            let url = req.url()?;
+            let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, v)| v.chars().take(80).collect::<String>()).unwrap_or_default();
+            let (wing, contractor) = (param("wing"), param("c"));
+            let today = kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64);
+            let data = db::liability(&db, &wing, &contractor, &today.to_iso(), &today.plus_days(views::liability::SOON_DAYS).to_iso()).await?;
+            http::html(views::liability::render(lang, origin, &wing, &contractor, &data, today), 200, Policy::Page)
+        }
+        "/api/v1/liability" => http::data(api::liability_json(&db::liability_export(&db).await?), "application/json; charset=utf-8"),
+        "/api/v1/liability.csv" => http::data(api::liability_csv(&db::liability_export(&db).await?), "text/csv; charset=utf-8"),
         "/api/v1/funding" => {
             let (rows, checked) = db::funding_export(&db).await?;
             http::data(api::funding_json(&rows, checked.as_deref()), "application/json; charset=utf-8")
@@ -163,13 +178,14 @@ async fn load_project(db: &worker::d1::D1Database, code: &str) -> Result<Option<
 /// The stored copy of a source page, as a download. Never served as HTML from our origin.
 async fn snapshot(env: &Env, db: &worker::d1::D1Database, id: i64) -> Result<Response> {
     let Some(row) = db::snapshot(db, id).await? else { return Response::error("No such snapshot", 404) };
-    let Some(object) = env.bucket("BUCKET")?.get(row.r2_key).execute().await? else {
+    let Some(object) = env.bucket("BUCKET")?.get(row.r2_key.as_str()).execute().await? else {
         return Response::error("Snapshot file is missing", 404);
     };
     let Some(body) = object.body() else { return Response::error("Snapshot file is empty", 404) };
     let headers = Headers::new();
     headers.set("Content-Type", "text/plain; charset=utf-8")?;
-    headers.set("Content-Disposition", &format!("attachment; filename=\"kiifb-{}.html\"", &row.sha256[..row.sha256.len().min(16)]))?;
+    let filename: String = row.r2_key.rsplit('/').next().unwrap_or("snapshot").chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_')).collect();
+    headers.set("Content-Disposition", &format!("attachment; filename=\"{filename}\""))?;
     headers.set("Cache-Control", "public, max-age=31536000, immutable")?;
     headers.set("X-Content-Type-Options", "nosniff")?;
     headers.set("X-Robots-Tag", "noindex")?;
@@ -257,6 +273,9 @@ async fn admin(mut req: Request, env: &Env) -> Result<Response> {
         // `details` caps how many work tables this run reads, so a first load can be done in steps.
         let details = param("details").and_then(|n| n.parse().ok()).unwrap_or(funding::DEFAULT_DETAILS);
         return Response::from_json(&funding::run(env, details).await?);
+    }
+    if param("source").as_deref() == Some("liability") {
+        return Response::from_json(&liability::run(env, true).await?);
     }
     // A body is a copy of the dashboard page pushed from elsewhere; without one we fetch it.
     let body = req.bytes().await?;

@@ -225,6 +225,13 @@ pub struct Home {
     pub points: Vec<Point>,
     pub changes: Vec<RecentChange>,
     pub funding: FundingTotals,
+    /// Works currently on PWD's defect-liability list.
+    pub liability: u32,
+}
+
+#[derive(Deserialize)]
+struct Count {
+    n: u32,
 }
 
 pub async fn home(db: &D1Database) -> Result<Home> {
@@ -248,6 +255,8 @@ pub async fn home(db: &D1Database) -> Result<Home> {
                  FROM observations o JOIN projects p ON p.id = o.project_id ORDER BY o.id DESC LIMIT 6",
             ),
             db.prepare(FUNDING_TOTALS),
+            // Today in India, since liability dates are Indian calendar days.
+            db.prepare("SELECT COUNT(*) AS n FROM liability_works WHERE missing_since IS NULL AND ends_on >= date('now', '+330 minutes')"),
         ])
         .await?;
     Ok(Home {
@@ -260,6 +269,7 @@ pub async fn home(db: &D1Database) -> Result<Home> {
         points: results[6].results()?,
         changes: results[7].results()?,
         funding: results[8].results::<FundingTotals>()?.into_iter().next().unwrap_or_default(),
+        liability: results[9].results::<Count>()?.into_iter().next().map(|row| row.n).unwrap_or(0),
     })
 }
 
@@ -384,11 +394,10 @@ pub async fn last_checked(db: &D1Database) -> Result<Option<String>> {
 #[derive(Debug, Deserialize)]
 pub struct SnapshotRow {
     pub r2_key: String,
-    pub sha256: String,
 }
 
 pub async fn snapshot(db: &D1Database, id: i64) -> Result<Option<SnapshotRow>> {
-    query!(db, "SELECT r2_key, sha256 FROM snapshots WHERE id = ?1", id)?.first(None).await
+    query!(db, "SELECT r2_key FROM snapshots WHERE id = ?1", id)?.first(None).await
 }
 
 /// Every project with its open flags, for the open-data endpoints.
@@ -590,4 +599,112 @@ pub async fn funding_export(db: &D1Database) -> Result<(Vec<FundingExportRow>, O
     }
     let checked = results[1].results::<Checked>()?.into_iter().next().and_then(|row| row.last_scraped_at);
     Ok((results[0].results()?, checked))
+}
+
+/// A finished work still under defect liability, as a list row.
+#[derive(Debug, Deserialize)]
+pub struct LiabilityRow {
+    pub wing: String,
+    pub name: String,
+    pub contractor: Option<String>,
+    pub contractor_key: Option<String>,
+    pub starts_on: Option<String>,
+    pub ends_on: Option<String>,
+    pub division: Option<String>,
+    pub subdivision: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct LiabilityTotals {
+    pub total: u32,
+    pub active: u32,
+    pub ending_soon: u32,
+    pub contractors: u32,
+    pub last_checked: Option<String>,
+    pub snapshot_id: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContractorCount {
+    pub contractor: String,
+    pub contractor_key: String,
+    pub n: u32,
+}
+
+pub struct Liability {
+    pub rows: Vec<LiabilityRow>,
+    pub totals: LiabilityTotals,
+    pub wings: Vec<Facet>,
+    pub contractors: Vec<ContractorCount>,
+}
+
+const LIABILITY_COLUMNS: &str = "wing, name, contractor, contractor_key, starts_on, ends_on, division, subdivision";
+
+/// `wing` and `contractor` narrow the rows; the totals and facets always describe the whole list.
+/// `today` and `soon` are yyyy-mm-dd: works ending between them count as ending soon.
+pub async fn liability(db: &D1Database, wing: &str, contractor: &str, today: &str, soon: &str) -> Result<Liability> {
+    let results = db
+        .batch(vec![
+            query!(
+                db,
+                &format!(
+                    "SELECT {LIABILITY_COLUMNS} FROM liability_works
+                     WHERE missing_since IS NULL AND (?1 = '' OR wing = ?1) AND (?2 = '' OR contractor_key = ?2)
+                     ORDER BY (ends_on IS NULL OR ends_on < ?3), ends_on, name LIMIT 600"
+                ),
+                wing,
+                contractor,
+                today,
+            )?,
+            query!(
+                db,
+                "SELECT COUNT(*) AS total, COALESCE(SUM(ends_on >= ?1), 0) AS active,
+                        COALESCE(SUM(ends_on >= ?1 AND ends_on <= ?2), 0) AS ending_soon,
+                        COUNT(DISTINCT contractor_key) AS contractors,
+                        (SELECT last_scraped_at FROM sources WHERE id = 3) AS last_checked,
+                        (SELECT MAX(id) FROM snapshots WHERE source_id = 3) AS snapshot_id
+                 FROM liability_works WHERE missing_since IS NULL",
+                today,
+                soon,
+            )?,
+            db.prepare("SELECT wing AS v, COUNT(*) AS n FROM liability_works WHERE missing_since IS NULL GROUP BY 1 ORDER BY 2 DESC"),
+            query!(
+                db,
+                "SELECT MAX(contractor) AS contractor, contractor_key, COUNT(*) AS n FROM liability_works
+                 WHERE missing_since IS NULL AND contractor_key IS NOT NULL AND ends_on >= ?1
+                 GROUP BY contractor_key ORDER BY n DESC, contractor LIMIT 12",
+                today,
+            )?,
+        ])
+        .await?;
+    Ok(Liability {
+        rows: results[0].results()?,
+        totals: results[1].results::<LiabilityTotals>()?.into_iter().next().unwrap_or_default(),
+        wings: results[2].results()?,
+        contractors: results[3].results()?,
+    })
+}
+
+/// Every work on the liability list, including those that have dropped off it, for the open-data endpoints.
+#[derive(Debug, Deserialize)]
+pub struct LiabilityExportRow {
+    pub wing: String,
+    pub name: String,
+    pub contractor: Option<String>,
+    pub starts_on: Option<String>,
+    pub ends_on: Option<String>,
+    pub division: Option<String>,
+    pub subdivision: Option<String>,
+    pub first_seen_on: String,
+    pub missing_since: Option<String>,
+}
+
+pub async fn liability_export(db: &D1Database) -> Result<Vec<LiabilityExportRow>> {
+    db.prepare(
+        "SELECT wing, name, contractor, starts_on, ends_on, division, subdivision, first_seen_on, missing_since
+         FROM liability_works ORDER BY ends_on, name",
+    )
+    .all()
+    .await?
+    .results()
 }

@@ -101,6 +101,11 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                     "We also read KIIFB's project status page (kiifb.org/prjStatus.jsp) once a day. It gives, for each project, the amount approved and the amount released, and the same for each work. When a project's figures move we re-read its work table the same night; the rest are re-read in turn, a few each night.",
                 )) }
 
+                p { (lang.pick(
+                    "കേരള പൊതുമരാമത്ത് വകുപ്പിന്റെ ഡി.എൽ.പി (തകരാർ ബാധ്യതാ കാലാവധി) പട്ടിക ആഴ്ചയിലൊരിക്കൽ വായിക്കുന്നു: എറണാകുളം, ആലുവ, മൂവാറ്റുപുഴ എന്നീ പേരുകളുള്ള ഡിവിഷനുകൾ മാത്രം. ആ താളുകളിൽ കരാറുകാരുടെയും ഉദ്യോഗസ്ഥരുടെയും ഫോൺ നമ്പറുകളുണ്ട്; ഞങ്ങൾ അവ സൂക്ഷിക്കുന്നില്ല. അതുകൊണ്ട് ഈ ഉറവിടത്തിന് താളിന്റെ പകർപ്പല്ല, ഞങ്ങൾ വായിച്ച വരികളുടെ പകർപ്പാണ് സൂക്ഷിക്കുന്നത്. വകുപ്പ് പ്രവൃത്തികൾക്ക് തിരിച്ചറിയൽ നമ്പർ നൽകുന്നില്ല; പട്ടികയിൽ നിന്ന് ഒരു പ്രവൃത്തി ഒഴിവായാൽ ഞങ്ങൾ അത് രേഖപ്പെടുത്തും. വകുപ്പിന്റെ പട്ടികയിൽ ചില പ്രവൃത്തികൾ ഒന്നിലധികം തവണ വരുന്നുണ്ട്; പേരും തുടക്കത്തീയതിയും കരാറുകാരനും ഒന്നായവ ഞങ്ങൾ ഒന്നായി എണ്ണുന്നു. അതിനാൽ ഞങ്ങളുടെ എണ്ണം വകുപ്പിന്റേതിനേക്കാൾ കുറവായിരിക്കും.",
+                    "We read the Kerala Public Works Department's DLP (defect liability period) list once a week, for the divisions named after Ernakulam, Aluva and Muvattupuzha only. Those pages print contractors' and officers' phone numbers; we do not keep them. So for this source the stored copy is our extract of the rows, not the page itself. PWD gives works no identifier; when a work drops off the list we record that. PWD's list repeats some works; rows with the same name, start date and contractor are counted once here, so our count is lower than PWD's.",
+                )) }
+
                 h2 #join { (lang.pick("രണ്ട് ഉറവിടങ്ങൾ ചേർക്കുന്നത്", "Joining the two sources")) }
                 p { (lang.pick(
                     "കിഫ്ബിയുടെ ഈ രണ്ട് താളുകൾക്കും പൊതുവായ തിരിച്ചറിയൽ നമ്പറില്ല. സ്റ്റാറ്റസ് താളിലെ “പദ്ധതി” ഡാഷ്ബോർഡിലെ ഒരു ഉപപദ്ധതിയാണ്; അതിലെ “പ്രവൃത്തികൾ” ഡാഷ്ബോർഡിലെ കരാർ പാക്കേജുകളും. അനുവദിച്ച തുക (രൂപ വരെ കൃത്യമായി), വകുപ്പ്, നിർവഹണ സ്ഥാപനം എന്നിവ മൂന്നും ഒന്നാണെങ്കിൽ, അങ്ങനെ യോജിക്കുന്നത് ഒന്നു മാത്രമാണെങ്കിൽ, ഞങ്ങൾ അവ ചേർക്കുന്നു. സ്ഥാപനത്തിന്റെ പേര് വ്യത്യസ്തമാണെങ്കിൽ പേരുകളിലെ വാക്കുകൾ ഭൂരിഭാഗവും യോജിക്കണം. ഒന്നിലധികം സാധ്യതകളുണ്ടെങ്കിൽ ചേർക്കില്ല. പ്രവൃത്തികളെ പാക്കേജുകളുമായി ചേർക്കുന്നത് പ്രസിദ്ധീകരിച്ച പേര് അതേപടി ഒന്നാണെങ്കിൽ മാത്രം.",
@@ -152,12 +157,13 @@ pub fn data(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
         "ഈ സൈറ്റിലെ എല്ലാ വിവരങ്ങളും യന്ത്രങ്ങൾക്ക് വായിക്കാവുന്ന രൂപത്തിൽ ലഭ്യമാണ്. ലോഗിൻ വേണ്ട.",
         "Everything on this site is available in machine-readable form. No login is needed.",
     );
-    let endpoints: [(&str, &str, &str, &str); 5] = [
+    let endpoints: [(&str, &str, &str, &str); 6] = [
         ("/api/v1/projects.csv", "CSV", "സ്പ്രെഡ്ഷീറ്റിൽ തുറക്കാൻ: എല്ലാ പദ്ധതികളും", "All projects, for spreadsheets"),
         ("/api/v1/projects", "JSON", "എല്ലാ പദ്ധതികളും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "All projects, with their works"),
         ("/api/v1/projects.geojson", "GeoJSON", "പദ്ധതി സ്ഥാനങ്ങൾ", "Project locations"),
         ("/api/v1/funding.csv", "CSV", "അനുവദിച്ചതും നൽകിയതും: ഓരോ പ്രവൃത്തിയും ഒരു വരി", "Approved and paid, one row per work"),
         ("/api/v1/funding", "JSON", "അനുവദിച്ചതും നൽകിയതും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "Approved and released, with works"),
+        ("/api/v1/liability.csv", "CSV", "കരാറുകാരന്റെ ബാധ്യതാ കാലാവധിയിലുള്ള പി.ഡബ്ല്യു.ഡി പ്രവൃത്തികൾ", "PWD works under contractor liability"),
     ];
     let body = html! {
         (head(lang, t.data_title, lead))
