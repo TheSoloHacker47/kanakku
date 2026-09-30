@@ -107,3 +107,12 @@ Low competition, photo contradiction and audit mention need sources that come la
 - Spot-check 5 projects against the live KIIFB dashboard, including a multi-pin project and the Vyttila flyover work.
 - Measure transfer sizes: list and project pages under 30 KB total with under 5 KB JS; report the wasm bundle size and cold-start time honestly.
 - After deploy: repeat the checks on the live URL, confirm the cron run in Workers logs, and report whether cache hits occur.
+
+## What changed during the build
+
+- **Estimates are sub-project figures.** KIIFB repeats a sub-project's estimate on every contract package under it (one dialysis-centre electrical package carried the whole 148-package programme estimate of about ₹51 crore). The parser counts the packages that share each estimate statewide. A shared estimate is never a project's headline figure and is never summed; the page shows the package's own expenditure, the sub-project estimate labelled as shared, and spending across all its packages.
+- **Transport line segments are merged.** One contract drawn as several line segments repeats the same figures; those become one work.
+- **Map uses Leaflet + protomaps-leaflet, not MapLibre GL.** About 85 KB compressed instead of about 300 KB, no WebGL needed, and no glyph files to host.
+- **List and project pages load no JavaScript at all.** The stylesheet is inlined, so a page is one request and one D1 round trip.
+- **Schema additions:** `projects.sub_project_code`, `estimate_shared_by`, `headline_amount`, `missing_since`, `record_json`; `works.work_ref`, `loa_amount`, `paid_contractor`; flags reference a work by `work_ref`.
+- **Build notes:** `strip = true` in the release profile breaks `wasm-bindgen`; `watch_dir` must not include the build output directory.
