@@ -70,6 +70,15 @@ impl Date {
         Date((ms + IST_OFFSET_MS).div_euclid(86_400_000) as i32)
     }
 
+    /// The date in India for a UTC timestamp such as `2026-09-30T21:00:05.123Z`.
+    pub fn from_utc_timestamp_ist(s: &str) -> Option<Date> {
+        let day = Date::parse_iso(s)?;
+        let time = s.trim().get(11..16)?;
+        let (h, m) = time.split_once(':')?;
+        let minutes: i32 = h.parse::<i32>().ok()? * 60 + m.parse::<i32>().ok()?;
+        Some(Date(day.0 + (minutes + 330).div_euclid(1440)))
+    }
+
     pub fn days_since(self, earlier: Date) -> i32 {
         self.0 - earlier.0
     }
@@ -117,6 +126,15 @@ mod tests {
         assert_eq!(d.to_iso(), "2017-11-17");
         assert_eq!(d.to_dmy(), "17-11-2017");
         assert_eq!(Date::parse_iso("2026-01-31T00:00:00Z").unwrap().to_dmy(), "31-01-2026");
+    }
+
+    #[test]
+    fn utc_timestamps_convert_to_the_india_date() {
+        let ist = |s| Date::from_utc_timestamp_ist(s).map(Date::to_iso);
+        assert_eq!(ist("2026-09-30T18:29:59.000Z").as_deref(), Some("2026-09-30"));
+        assert_eq!(ist("2026-09-30T18:30:00.000Z").as_deref(), Some("2026-10-01"));
+        assert_eq!(ist("2026-09-30T21:00:05.123Z").as_deref(), Some("2026-10-01"));
+        assert_eq!(ist("2026-09-30"), None);
     }
 
     #[test]

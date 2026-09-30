@@ -4,7 +4,7 @@ compatibility_date = "2026-09-01"
 
 [build]
 command = "cd crates/worker && worker-build --release"
-watch_dir = ["crates"]
+watch_dir = ["crates/core/src", "crates/worker/src"]
 
 [assets]
 directory = "./assets"
@@ -25,6 +25,7 @@ crons = ["0 21 * * *"] # 02:30 IST
 
 [vars]
 PILOT_DISTRICT = "Ernakulam"
+EDGE_CACHE = "on"
 CONTACT = "" # a URL or address for the scraper's User-Agent, so KIIFB can reach you
 
 [observability]

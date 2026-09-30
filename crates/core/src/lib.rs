@@ -5,6 +5,7 @@ pub mod changes;
 pub mod date;
 pub mod flags;
 pub mod fmt;
+pub mod gaps;
 pub mod i18n;
 pub mod kiifb;
 pub mod model;
