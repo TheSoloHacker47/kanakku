@@ -356,6 +356,7 @@ pub fn render(lang: Lang, origin: &str, data: &Home, district: &str) -> String {
             nav: if state { Nav::Home } else { Nav::None },
             last_checked: totals.last_checked.as_deref(),
             head: html! {},
+            image: None,
         },
         body,
     )

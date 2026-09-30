@@ -234,6 +234,7 @@ pub fn render(lang: Lang, origin: &str, filter: &Filter, listing: &Listing) -> S
             nav: Nav::Projects,
             last_checked: totals.last_checked.as_deref(),
             head: html! {},
+            image: None,
         },
         body,
     )

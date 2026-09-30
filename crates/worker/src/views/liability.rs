@@ -209,6 +209,7 @@ pub fn render(lang: Lang, origin: &str, filter: &LiabilityFilter, data: &Liabili
             nav: Nav::None,
             last_checked: totals.last_checked.as_deref(),
             head: html! {},
+            image: None,
         },
         body,
     )

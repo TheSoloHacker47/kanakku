@@ -111,7 +111,7 @@ pub fn contractors(lang: Lang, origin: &str, q: &str, page: u32, rows: &[Contrac
             }
         }
     };
-    layout(&Page { lang, title, description: lead, path: &path, origin, nav: Nav::None, last_checked: None, head: html! {} }, body)
+    layout(&Page { lang, title, description: lead, path: &path, origin, nav: Nav::None, last_checked: None, head: html! {}, image: None }, body)
 }
 
 pub fn contractor(lang: Lang, origin: &str, key: &str, data: &ContractorPage, today: Date) -> String {
@@ -222,7 +222,7 @@ pub fn contractor(lang: Lang, origin: &str, key: &str, data: &ContractorPage, to
             }
         }
     };
-    layout(&Page { lang, title: &name, description: &lead, path: &path, origin, nav: Nav::None, last_checked: None, head: html! {} }, body)
+    layout(&Page { lang, title: &name, description: &lead, path: &path, origin, nav: Nav::None, last_checked: None, head: html! {}, image: None }, body)
 }
 
 fn works(n: usize) -> String {
@@ -290,7 +290,7 @@ pub fn agencies(lang: Lang, origin: &str, rows: &[AgencyRow]) -> String {
             }
         }
     };
-    layout(&Page { lang, title, description: lead, path: "/agencies", origin, nav: Nav::None, last_checked: None, head: html! {} }, body)
+    layout(&Page { lang, title, description: lead, path: "/agencies", origin, nav: Nav::None, last_checked: None, head: html! {}, image: None }, body)
 }
 
 pub fn agency(lang: Lang, origin: &str, data: &AgencyPage) -> String {
@@ -354,5 +354,5 @@ pub fn agency(lang: Lang, origin: &str, data: &AgencyPage) -> String {
             }
         }
     };
-    layout(&Page { lang, title: &name, description: &lead, path: &path, origin, nav: Nav::None, last_checked: None, head: html! {} }, body)
+    layout(&Page { lang, title: &name, description: &lead, path: &path, origin, nav: Nav::None, last_checked: None, head: html! {}, image: None }, body)
 }

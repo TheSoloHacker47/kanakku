@@ -47,6 +47,8 @@ pub struct Page<'a> {
     pub last_checked: Option<&'a str>,
     /// Extra `<head>` markup, used by the map page for its scripts.
     pub head: Markup,
+    /// Path of this page's own share image, when it has one.
+    pub image: Option<String>,
 }
 
 pub fn layout(page: &Page, body: Markup) -> String {
@@ -80,7 +82,9 @@ pub fn layout(page: &Page, body: Markup) -> String {
                 meta property="og:title" content=(page.title);
                 meta property="og:description" content=(page.description);
                 meta property="og:url" content=(url);
-                meta property="og:image" content=(format!("{}/og.png", page.origin));
+                meta property="og:image" content=(format!("{}{}", page.origin, page.image.as_deref().unwrap_or("/og.png")));
+                meta property="og:image:width" content="1200";
+                meta property="og:image:height" content="630";
                 meta name="twitter:card" content="summary_large_image";
                 style { (PreEscaped(CSS)) }
                 (page.head)

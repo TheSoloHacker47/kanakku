@@ -175,6 +175,7 @@ pub fn list(lang: Lang, origin: &str, query: &Query, listing: &FundingListing) -
             nav: Nav::Funding,
             last_checked: totals.last_checked.as_deref(),
             head: html! {},
+            image: None,
         },
         body,
     )
@@ -516,6 +517,7 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
             nav: Nav::None,
             last_checked: row.last_checked.as_deref(),
             head: html! {},
+            image: Some(format!("/og/f/{}.png", encode_segment(&project.reference))),
         },
         body,
     )

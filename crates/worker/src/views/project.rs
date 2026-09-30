@@ -326,6 +326,7 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
             nav: Nav::None,
             last_checked: row.last_checked.as_deref(),
             head: html! {},
+            image: Some(format!("/og/p/{}.png", encode_segment(&project.code))),
         },
         body,
     )

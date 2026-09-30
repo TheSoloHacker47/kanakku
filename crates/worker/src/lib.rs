@@ -9,6 +9,7 @@ use worker::{
 };
 
 mod api;
+mod cards;
 mod db;
 mod district;
 mod funding;
@@ -16,6 +17,7 @@ mod http;
 mod icons;
 mod ingest;
 mod liability;
+mod og;
 mod runs;
 mod views;
 
@@ -212,6 +214,15 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
                     Some((project, data)) => http::data(api::project_json(&project, &data), "application/json; charset=utf-8"),
                     None => Response::error("{\"error\":\"no such project\"}", 404),
                 };
+            } else if let Some(code) = path.strip_prefix("/og/p/").and_then(|c| c.strip_suffix(".png")).filter(|c| is_code(c)) {
+                if let Some((project, data)) = load_project(&db, code).await? {
+                    return share_image(&cards::project(&project, &data));
+                }
+            } else if let Some(reference) = path.strip_prefix("/og/f/").and_then(|r| r.strip_suffix(".png")).filter(|r| is_code(r)) {
+                if let Some(data) = db::funding_project(&db, reference).await? {
+                    let project = serde_json::from_str(&data.row.record_json).map_err(|e| Error::RustError(e.to_string()))?;
+                    return share_image(&cards::funded(&project));
+                }
             } else if let Some(district) = rest.strip_prefix("/d/").and_then(names::district_from_slug) {
                 return http::html(views::home::render(lang, origin, &db::home(&db, district).await?, district), 200, Policy::Page);
             } else if let Some(key) = rest.strip_prefix("/c/").filter(|k| is_code(k)) {
@@ -241,6 +252,16 @@ async fn load_project(db: &worker::d1::D1Database, code: &str) -> Result<Option<
     let Some(data) = db::project(db, code).await? else { return Ok(None) };
     let project = serde_json::from_str(&data.row.record_json).map_err(|e| Error::RustError(e.to_string()))?;
     Ok(Some((project, data)))
+}
+
+/// A share image as a response. Drawn once and then kept at the edge for a day.
+fn share_image(card: &cards::Owned) -> Result<Response> {
+    let Some(png) = og::render(&card.borrow()) else { return Response::error("Could not draw the image", 500) };
+    let headers = Headers::new();
+    headers.set("Content-Type", "image/png")?;
+    headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400")?;
+    headers.set("X-Content-Type-Options", "nosniff")?;
+    Ok(Response::from_bytes(png)?.with_headers(headers))
 }
 
 /// The stored copy of a source page, as a download. Never served as HTML from our origin.

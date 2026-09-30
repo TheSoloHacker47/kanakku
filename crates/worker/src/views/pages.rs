@@ -401,5 +401,5 @@ fn page<'a>(
     nav: Nav,
     last_checked: Option<&'a str>,
 ) -> Page<'a> {
-    Page { lang, title, description, path, origin, nav, last_checked, head: Markup::default() }
+    Page { lang, title, description, path, origin, nav, last_checked, head: Markup::default(), image: None }
 }

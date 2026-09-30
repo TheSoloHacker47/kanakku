@@ -14,3 +14,5 @@ maud = "0.27"
 sha2 = "0.10"
 serde.workspace = true
 serde_json.workspace = true
+fontdue = { version = "0.9", default-features = false, features = ["std"] }
+png = "0.17"
