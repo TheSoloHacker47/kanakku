@@ -155,6 +155,10 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             http::html(views::list::render(lang, origin, &filter, &listing), 200, Policy::Page)
         }
         "/methodology" => http::html(views::pages::methodology(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
+        "/about" => {
+            let contact = env.var("CONTACT").map(|v| v.to_string()).unwrap_or_default();
+            http::html(views::pages::about(lang, origin, &contact), 200, Policy::Page)
+        }
         "/data" => http::html(views::pages::data(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
         "/map" => http::html(views::pages::map(lang, origin, checked().await?.as_deref()), 200, Policy::Map),
         "/funding" => {
@@ -220,6 +224,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             http::data(api::projects_json(&rows, db::last_checked(&db).await?.as_deref()), "application/json; charset=utf-8")
         }
         "/api/v1/projects.csv" => http::data(api::projects_csv(&db::export(&db).await?), "text/csv; charset=utf-8"),
+        "/api/v1/changes" | "/api/v1/flags" | "/api/v1/snapshots" => api_list(req, &db, rest).await,
         "/api/v1/projects.geojson" => http::data(api::projects_geojson(&db::export(&db).await?), "application/geo+json; charset=utf-8"),
         _ => {
             if let Some(code) = rest.strip_prefix("/p/").filter(|c| is_code(c)) {
@@ -264,6 +269,80 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             http::html(views::pages::not_found(lang, origin), 404, Policy::Page)
         }
     }
+}
+
+/// The paged endpoints. Bad parameters get a 400 that says which one, rather than an empty list.
+async fn api_list(req: &Request, db: &worker::d1::D1Database, path: &str) -> Result<Response> {
+    let url = req.url()?;
+    let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, v)| v.trim().to_string()).unwrap_or_default();
+    let bad = |what: &str| -> Result<Response> {
+        let mut response = Response::from_json(&serde_json::json!({ "error": what }))?.with_status(400);
+        response.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+        Ok(response)
+    };
+    let page: u32 = match param("page").as_str() {
+        "" => 1,
+        p => match p.parse::<u32>() {
+            Ok(n) if (1..=100_000).contains(&n) => n,
+            _ => return bad("page must be a whole number from 1"),
+        },
+    };
+    let district = match param("district").as_str() {
+        "" => String::new(),
+        "-" => "-".to_string(),
+        d => match names::canonical_district(d) {
+            Some(d) => d.to_string(),
+            None => return bad("district must be one of Kerala's 14 districts, or - for none"),
+        },
+    };
+    // The same address with the page moved on, when there is a next page.
+    let next = |total: u32| -> Option<String> {
+        (page * db::API_PAGE_SIZE < total).then(|| {
+            let mut pairs: Vec<String> = url.query_pairs().filter(|(k, _)| k != "page").map(|(k, v)| views::pair(&k, &v)).collect();
+            pairs.push(format!("page={}", page + 1));
+            format!("{}?{}", url.path(), pairs.join("&"))
+        })
+    };
+    let body = match path {
+        "/api/v1/changes" => {
+            let since = param("since");
+            let valid = since.is_empty() || (since.len() == 10 && kanakku_core::Date::parse_iso(&since).is_some());
+            if !valid {
+                return bad("since must be a date written yyyy-mm-dd");
+            }
+            let (rows, total) = db::changes(db, &since, &district, page).await?;
+            api::changes_json(&rows, page, total, next(total))
+        }
+        "/api/v1/flags" => {
+            let status = match param("status").as_str() {
+                "" | "open" => "open",
+                "cleared" => "cleared",
+                "all" => "all",
+                _ => return bad("status must be open, cleared or all"),
+            };
+            let kind = match param("type").as_str() {
+                "" => "",
+                t => match kanakku_core::flags::FlagKind::parse(t) {
+                    Some(kind) => kind.as_str(),
+                    None => return bad("type is not a flag type; see /methodology#rules"),
+                },
+            };
+            let (rows, total) = db::flags(db, status, kind, &district, page).await?;
+            api::flags_json(&rows, page, total, next(total))
+        }
+        _ => {
+            let source = match param("source").as_str() {
+                "" => 0,
+                s => match s.parse::<u32>() {
+                    Ok(n) if (1..=3).contains(&n) => n,
+                    _ => return bad("source must be 1 (dashboard), 2 (status page) or 3 (PWD liability list)"),
+                },
+            };
+            let (rows, total) = db::snapshots(db, source, page).await?;
+            api::snapshots_json(&rows, page, total, next(total))
+        }
+    };
+    http::data(body, "application/json; charset=utf-8")
 }
 
 async fn load_project(db: &worker::d1::D1Database, code: &str) -> Result<Option<(Project, db::ProjectPage)>> {

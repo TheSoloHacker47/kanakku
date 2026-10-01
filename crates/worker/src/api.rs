@@ -8,6 +8,21 @@ use serde_json::{json, Value};
 use crate::db::{ExportRow, FundingExportRow, LiabilityExportRow, ProjectPage, SourceStatus, Status};
 use crate::runs::STALE_AFTER_HOURS;
 
+/// The terms every download carries. The figures are the sources'; what Kanakku adds is CC BY 4.0.
+pub const LICENSE: &str = "CC-BY-4.0";
+pub const LICENSE_URL: &str = "https://creativecommons.org/licenses/by/4.0/";
+pub const ATTRIBUTION: &str = "Figures as published by the source named in each record. Compiled, cleaned, flagged and joined by Kanakku. Credit both.";
+
+/// A JSON body with the licence and attribution added at the top level.
+fn with_terms(mut body: Value) -> String {
+    if let Some(object) = body.as_object_mut() {
+        object.insert("license".into(), json!(LICENSE));
+        object.insert("license_url".into(), json!(LICENSE_URL));
+        object.insert("attribution".into(), json!(ATTRIBUTION));
+    }
+    body.to_string()
+}
+
 fn flag_list(types: Option<&str>) -> Vec<&str> {
     types.map(|t| t.split(',').collect()).unwrap_or_default()
 }
@@ -25,14 +40,13 @@ pub fn projects_json(rows: &[ExportRow], last_checked: Option<&str>) -> String {
             Some(record)
         })
         .collect();
-    json!({
+    with_terms(json!({
         "source": kiifb::SOURCE_URL,
         "source_last_checked": last_checked,
         "currency": "INR, whole rupees",
         "count": projects.len(),
         "projects": projects,
-    })
-    .to_string()
+    }))
 }
 
 pub fn project_json(project: &Project, data: &ProjectPage) -> String {
@@ -56,7 +70,7 @@ pub fn project_json(project: &Project, data: &ProjectPage) -> String {
         .iter()
         .map(|o| json!({ "field": o.field, "old": o.old_value, "new": o.new_value, "observed_on": o.observed_on }))
         .collect();
-    json!({
+    with_terms(json!({
         "project": project,
         "flags": flags,
         "changes": changes,
@@ -68,8 +82,7 @@ pub fn project_json(project: &Project, data: &ProjectPage) -> String {
             "sha256": data.row.sha256,
             "snapshot": format!("/snapshot/{}", data.row.snapshot_id),
         },
-    })
-    .to_string()
+    }))
 }
 
 pub fn projects_csv(rows: &[ExportRow]) -> String {
@@ -159,7 +172,7 @@ pub fn projects_geojson(rows: &[ExportRow]) -> String {
             }
         }
     }
-    json!({ "type": "FeatureCollection", "features": features }).to_string()
+    with_terms(json!({ "type": "FeatureCollection", "features": features }))
 }
 
 fn round6(v: f64) -> f64 {
@@ -186,14 +199,13 @@ pub fn funding_json(rows: &[FundingExportRow], last_checked: Option<&str>) -> St
             Some(record)
         })
         .collect();
-    json!({
+    with_terms(json!({
         "source": kiifb_status::SOURCE_URL,
         "source_last_checked": last_checked,
         "currency": "INR, whole rupees",
         "count": projects.len(),
         "projects": projects,
-    })
-    .to_string()
+    }))
 }
 
 /// One row per work; a project without works gets one row with the work columns empty.
@@ -262,7 +274,7 @@ pub fn liability_json(rows: &[LiabilityExportRow]) -> String {
             })
         })
         .collect();
-    json!({ "source": kanakku_core::pwd_dlp::SOURCE_URL, "currency": "INR, whole rupees", "count": works.len(), "works": works }).to_string()
+    with_terms(json!({ "source": kanakku_core::pwd_dlp::SOURCE_URL, "currency": "INR, whole rupees", "count": works.len(), "works": works }))
 }
 
 pub fn liability_csv(rows: &[LiabilityExportRow]) -> String {
@@ -322,4 +334,69 @@ pub fn status_json(status: &Status, now_ms: i64) -> (String, bool) {
         })
         .collect();
     (json!({ "healthy": healthy, "sources": sources }).to_string(), healthy)
+}
+
+/// A page of a paged endpoint: the items, where this page sits, and the address of the next one.
+fn paged(key: &str, items: Vec<Value>, page: u32, total: u32, next: Option<String>) -> String {
+    let mut body = json!({ "page": page, "per_page": crate::db::API_PAGE_SIZE, "total": total, "next": next });
+    body[key] = Value::Array(items);
+    with_terms(body)
+}
+
+pub fn changes_json(rows: &[crate::db::ChangeRow], page: u32, total: u32, next: Option<String>) -> String {
+    let items = rows
+        .iter()
+        .map(|c| {
+            json!({
+                "source": c.source,
+                "record": c.record,
+                "field": c.field,
+                "old": c.old_value,
+                "new": c.new_value,
+                "observed_on": c.observed_on,
+                "snapshot": format!("/snapshot/{}", c.snapshot_id),
+            })
+        })
+        .collect();
+    paged("changes", items, page, total, next)
+}
+
+pub fn flags_json(rows: &[crate::db::ApiFlagRow], page: u32, total: u32, next: Option<String>) -> String {
+    let items = rows
+        .iter()
+        .map(|f| {
+            json!({
+                "source": f.source,
+                "record": f.record,
+                "work": f.work_ref,
+                "type": f.kind,
+                "rule_version": f.rule_version,
+                "value": serde_json::from_str::<Value>(&f.value_json).unwrap_or_default(),
+                "status": f.status,
+                "raised_on": f.created_on,
+                "cleared_on": f.cleared_on,
+                "snapshot": format!("/snapshot/{}", f.snapshot_id),
+            })
+        })
+        .collect();
+    paged("flags", items, page, total, next)
+}
+
+pub fn snapshots_json(rows: &[crate::db::SnapshotListRow], page: u32, total: u32, next: Option<String>) -> String {
+    let items = rows
+        .iter()
+        .map(|s| {
+            json!({
+                "id": s.id,
+                "source_id": s.source_id,
+                "source": s.source,
+                "url": s.url,
+                "sha256": s.sha256,
+                "bytes": s.bytes,
+                "fetched_at": s.fetched_at,
+                "download": format!("/snapshot/{}", s.id),
+            })
+        })
+        .collect();
+    paged("snapshots", items, page, total, next)
 }

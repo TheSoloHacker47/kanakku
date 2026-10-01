@@ -282,3 +282,14 @@ Not done: a pass with a real screen reader, and a keyboard-operable map.
 | `robots.txt` | `assets/robots.txt` | Everything allowed except `/admin/` and `/snapshot/`. |
 
 Lighthouse (mobile, all page kinds): accessibility 100, best practices 100 (96 on the map until the basemap is uploaded), performance 99 to 100 on the live site. Its robots.txt check fails only because the pages' content security policy stops Lighthouse itself from fetching the file; crawlers fetch it directly.
+
+## Build 7: launch pages, licences, API
+
+| Item | Where | Notes |
+|---|---|---|
+| About | `/about`, `pages::about` | Who runs it (no name yet), independence, corrections (reply and fix within 7 days), takedown (public-spending records stay; private phone numbers and addresses go), privacy, licences. Contact from `CONTACT`. |
+| Licences | `LICENSE`, `/data#license`, `api::LICENSE` | AGPL-3.0 for code, CC BY 4.0 for Kanakku's additions; every JSON body carries `license`, `license_url`, `attribution` |
+| Paged API | `/api/v1/changes`, `/flags`, `/snapshots` | 500 a page, `next` link, `district=`; bad parameters answer 400 with the reason |
+| OpenAPI | `assets/api/v1/openapi.json` | Static, CORS open |
+| Stages | `stage::from_status`, migration 0010 | Project Execution Document moved from Preparation to Technical sanction, per KIIFB's 2018 roads guidelines and the data (those projects already carry sanction and tender amounts). Base Zero and Base One remain undocumented by KIIFB; Base Zero projects show no spending. |
+| Keyboard | all pages | Every control focusable with a visible ring; the filter panel opens with Enter |

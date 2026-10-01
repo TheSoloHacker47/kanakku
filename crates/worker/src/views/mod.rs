@@ -124,7 +124,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                         div {
                             a.brand href=(href("/")) { (logo()) (t.site_name) }
                             p { (t.footer_principle) }
-                            p { (t.footer_corrections) }
+                            p { a href=(href("/about#corrections")) { (t.footer_corrections) } }
                         }
                         div {
                             h2 { (lang.pick("താളുകൾ", "Pages")) }
@@ -139,6 +139,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                                 li { a href=(href("/methodology")) { (t.nav_methodology) } }
                                 li { a href=(href("/data")) { (t.nav_data) } }
                                 li { a href=(href("/status")) { (lang.pick("പ്രവർത്തന നില", "Status")) } }
+                                li { a href=(href("/about")) { (lang.pick("കണക്കിനെക്കുറിച്ച്", "About")) } }
                             }
                         }
                         div {

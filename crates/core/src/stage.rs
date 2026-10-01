@@ -33,7 +33,8 @@ impl Stage {
             Stage::Contract
         } else if has("tender") {
             Stage::Tender
-        } else if has("technical sanction") {
+        } else if has("technical sanction") || has("project execution document") {
+            // KIIFB's guidelines put the Project Execution Document after technical sanction.
             Stage::TechnicalSanction
         } else if has("project") || has("design basis") || has("submitted") {
             Stage::Preparation
@@ -88,7 +89,8 @@ mod tests {
             ("Tender Created", Stage::Tender),
             ("Project Created", Stage::Preparation),
             ("Project Initiated", Stage::Preparation),
-            ("Project Execution Document Stage 1 Approved", Stage::Preparation),
+            ("Project Execution Document Stage 1 Approved", Stage::TechnicalSanction),
+            ("Project Execution Document Stage 2 Initiated", Stage::TechnicalSanction),
             ("Design Basis Report Approved", Stage::Preparation),
             ("Submitted for Confirmation by KIIFB", Stage::Preparation),
             ("Return to SPV", Stage::Returned),

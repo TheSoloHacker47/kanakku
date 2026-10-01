@@ -1,0 +1,703 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Kanakku open data",
+  "version": "1",
+  "description": "Public project figures for Kerala, as published by KIIFB and the Kerala PWD, collected daily (the PWD list weekly). Amounts are whole rupees (INR). Dates are yyyy-mm-dd in India time; timestamps are UTC. No key or login. Everything Kanakku adds (cleaned fields, stages, flags, joins between sources) is licensed CC BY 4.0; the figures are the sources'. Credit the source and Kanakku. Version 1 only grows: fields are added, never renamed or removed; a breaking change would be /api/v2/.",
+  "license": {
+   "name": "CC BY 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/"
+  }
+ },
+ "paths": {
+  "/api/v1/projects": {
+   "get": {
+    "summary": "Every project on the KIIFB dashboard, with its works and open flags.",
+    "responses": {
+     "200": {
+      "description": "All projects.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "license": {
+           "type": "string",
+           "example": "CC-BY-4.0"
+          },
+          "license_url": {
+           "type": "string"
+          },
+          "attribution": {
+           "type": "string"
+          },
+          "source": {
+           "type": "string"
+          },
+          "source_last_checked": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "currency": {
+           "type": "string"
+          },
+          "count": {
+           "type": "integer"
+          },
+          "projects": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/Project"
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/projects.csv": {
+   "get": {
+    "summary": "Every project, one row each, for spreadsheets.",
+    "responses": {
+     "200": {
+      "description": "CSV.",
+      "content": {
+       "text/csv": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/projects.geojson": {
+   "get": {
+    "summary": "Project and work locations as GeoJSON points.",
+    "responses": {
+     "200": {
+      "description": "A FeatureCollection; properties: code, title, work, amount, flagged, flags.",
+      "content": {
+       "application/geo+json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/projects/{code}": {
+   "get": {
+    "summary": "One project: record, flags (open and cleared), recorded changes and source.",
+    "parameters": [
+     {
+      "name": "code",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "example": "PWD015-69-03"
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "The project.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "No such project."
+     }
+    }
+   }
+  },
+  "/api/v1/funding": {
+   "get": {
+    "summary": "Every project on KIIFB's project status page: approved and paid, with works.",
+    "responses": {
+     "200": {
+      "description": "All funded projects. `paid` is the sum of the works; `released_as_listed` is KIIFB's list figure, which over-counts projects filed under several districts (`listed_multiple`). `map_group` is the dashboard sub-project Kanakku joined it to.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/funding.csv": {
+   "get": {
+    "summary": "Approved and paid, one row per work.",
+    "responses": {
+     "200": {
+      "description": "CSV.",
+      "content": {
+       "text/csv": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/liability": {
+   "get": {
+    "summary": "PWD works whose contractor is still liable for defects.",
+    "responses": {
+     "200": {
+      "description": "All works on the list. Contact numbers are never included.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/liability.csv": {
+   "get": {
+    "summary": "The same, as CSV.",
+    "responses": {
+     "200": {
+      "description": "CSV.",
+      "content": {
+       "text/csv": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/changes": {
+   "get": {
+    "summary": "Every field change Kanakku has recorded, newest first.",
+    "parameters": [
+     {
+      "name": "since",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "format": "date"
+      },
+      "description": "Only changes observed on or after this date."
+     },
+     {
+      "name": "district",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      },
+      "description": "One of Kerala's 14 districts in English (Ernakulam, Thiruvananthapuram, …), or - for records KIIFB files under no district. A project spanning several districts appears under each."
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "A page of changes.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "license": {
+           "type": "string",
+           "example": "CC-BY-4.0"
+          },
+          "license_url": {
+           "type": "string"
+          },
+          "attribution": {
+           "type": "string"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "per_page": {
+           "type": "integer",
+           "example": 500
+          },
+          "total": {
+           "type": "integer"
+          },
+          "next": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "description": "Path of the next page, or null on the last page."
+          },
+          "changes": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/Change"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "A parameter is not valid; the body says which.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "error": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/flags": {
+   "get": {
+    "summary": "Flags raised by Kanakku's published rules, newest first.",
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "open",
+        "cleared",
+        "all"
+       ],
+       "default": "open"
+      }
+     },
+     {
+      "name": "type",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "overdue",
+        "payment_vs_progress",
+        "cost_escalation",
+        "stale",
+        "paid_above_approval"
+       ]
+      },
+      "description": "See /methodology#rules."
+     },
+     {
+      "name": "district",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      },
+      "description": "One of Kerala's 14 districts in English (Ernakulam, Thiruvananthapuram, …), or - for records KIIFB files under no district. A project spanning several districts appears under each."
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "A page of flags.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "license": {
+           "type": "string",
+           "example": "CC-BY-4.0"
+          },
+          "license_url": {
+           "type": "string"
+          },
+          "attribution": {
+           "type": "string"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "per_page": {
+           "type": "integer",
+           "example": 500
+          },
+          "total": {
+           "type": "integer"
+          },
+          "next": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "description": "Path of the next page, or null on the last page."
+          },
+          "flags": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/Flag"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "A parameter is not valid; the body says which.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "error": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/snapshots": {
+   "get": {
+    "summary": "The stored copies of source pages that every figure traces back to, newest first.",
+    "parameters": [
+     {
+      "name": "source",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "enum": [
+        1,
+        2,
+        3
+       ]
+      },
+      "description": "1 KIIFB dashboard, 2 KIIFB project status page, 3 PWD liability list."
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "A page of stored copies.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "license": {
+           "type": "string",
+           "example": "CC-BY-4.0"
+          },
+          "license_url": {
+           "type": "string"
+          },
+          "attribution": {
+           "type": "string"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "per_page": {
+           "type": "integer",
+           "example": 500
+          },
+          "total": {
+           "type": "integer"
+          },
+          "next": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "description": "Path of the next page, or null on the last page."
+          },
+          "snapshots": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/Snapshot"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "A parameter is not valid; the body says which.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "error": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/status": {
+   "get": {
+    "summary": "Whether each source was read recently. 503 when one is stale.",
+    "responses": {
+     "200": {
+      "description": "Healthy.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "At least one source is stale."
+     }
+    }
+   }
+  },
+  "/snapshot/{id}": {
+   "get": {
+    "summary": "Download one stored copy (as plain text).",
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "The stored file."
+     },
+     "404": {
+      "description": "No such copy."
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Project": {
+    "type": "object",
+    "description": "A KIIFB dashboard record. `estimated_amount` belongs to the sub-project: do not add it up where `estimate_shared_by` is greater than 1.",
+    "properties": {
+     "code": {
+      "type": "string"
+     },
+     "title": {
+      "type": "string"
+     },
+     "estimated_amount": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "estimate_shared_by": {
+      "type": "integer"
+     },
+     "expenditure": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "open_flags": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "first_seen_on": {
+      "type": "string"
+     },
+     "changed_on": {
+      "type": "string"
+     },
+     "missing_since": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   },
+   "Change": {
+    "type": "object",
+    "properties": {
+     "source": {
+      "type": "string",
+      "enum": [
+       "dashboard",
+       "status"
+      ]
+     },
+     "record": {
+      "type": "string",
+      "description": "Project code (dashboard) or status-page reference (status)."
+     },
+     "field": {
+      "type": "string"
+     },
+     "old": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "new": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "observed_on": {
+      "type": "string",
+      "format": "date"
+     },
+     "snapshot": {
+      "type": "string"
+     }
+    }
+   },
+   "Flag": {
+    "type": "object",
+    "properties": {
+     "source": {
+      "type": "string",
+      "enum": [
+       "dashboard",
+       "status"
+      ]
+     },
+     "record": {
+      "type": "string"
+     },
+     "work": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "type": {
+      "type": "string"
+     },
+     "rule_version": {
+      "type": "integer"
+     },
+     "value": {
+      "type": "object",
+      "description": "The figures the flag rests on."
+     },
+     "status": {
+      "type": "string"
+     },
+     "raised_on": {
+      "type": "string"
+     },
+     "cleared_on": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "snapshot": {
+      "type": "string"
+     }
+    }
+   },
+   "Snapshot": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "integer"
+     },
+     "source_id": {
+      "type": "integer"
+     },
+     "source": {
+      "type": "string"
+     },
+     "url": {
+      "type": "string"
+     },
+     "sha256": {
+      "type": "string"
+     },
+     "bytes": {
+      "type": "integer"
+     },
+     "fetched_at": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "download": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ }
+}

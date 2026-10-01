@@ -108,3 +108,13 @@ curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" --data-binary @page.html h
 | `/agencies`, `/a/{key}` | Implementing agencies |
 | `/og/p/{code}.png`, `/og/f/{ref}.png` | Share images, drawn on request |
 | `/status`, `/methodology`, `/data`, `/map` | Health, method, downloads, map |
+| `/about` | Who runs it, corrections, takedown requests, privacy, licences. The contact shown is `CONTACT` in `wrangler.toml` |
+
+## Open data API
+
+Everything is under `/api/v1/`, described in full at `/api/v1/openapi.json` (a static file in `assets/api/v1/`). Full downloads: `projects`, `funding`, `liability` (JSON and `.csv`), `projects.geojson`, `projects/{code}`. Paged, 500 rows a page with a `next` link: `changes?since=yyyy-mm-dd`, `flags?status=open|cleared|all&type=…`, `snapshots?source=1|2|3`; all three take `district=`. Version 1 only grows; a breaking change would be `/api/v2/`.
+
+## Licences
+
+- Code: [AGPL-3.0-or-later](LICENSE).
+- Data: what Kanakku adds (the compilation, cleaned names, stages, flags and joins) is [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The figures are the sources'. Every JSON download carries `license` and `attribution`.

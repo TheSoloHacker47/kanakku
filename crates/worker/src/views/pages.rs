@@ -74,6 +74,10 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                     "കിഫ്ബിയുടെ സ്ഥിതിവിവരങ്ങൾ (“WBS Base One Approved” പോലുള്ളവ) അവരുടെ ആഭ്യന്തര പ്രവർത്തനക്രമത്തിലെ പദങ്ങളാണ്. വായിക്കാൻ എളുപ്പത്തിന് ഞങ്ങൾ അവയെ താഴെയുള്ള ഘട്ടങ്ങളാക്കി തിരിക്കുന്നു. ഈ തരംതിരിവ് ഞങ്ങളുടേതാണ്; കിഫ്ബിയുടെ യഥാർത്ഥ പദം ഓരോ പദ്ധതിയുടെയും താളിൽ കാണിക്കുന്നു.",
                     "KIIFB's status labels, such as “WBS Base One Approved”, are terms from its internal workflow. To make them readable we group them into the stages below. The grouping is ours; each project page also shows KIIFB's original label.",
                 )) }
+                p { (lang.pick(
+                    "കിഫ്ബി ഈ ക്രമം എവിടെയും പൂർണ്ണമായി വിശദീകരിക്കുന്നില്ല. കിഫ്ബിയുടെ റോഡ് പ്രവൃത്തി മാർഗ്ഗനിർദ്ദേശം (2018) അനുസരിച്ച് പ്രോജക്ട് എക്സിക്യൂഷൻ ഡോക്യുമെന്റ് സാങ്കേതികാനുമതിക്കു ശേഷമാണ്; അതിനാൽ അത് സാങ്കേതികാനുമതിയുടെ ഘട്ടത്തിൽ വരുന്നു. “WBS Base Zero”, “Base One” എന്നിവയുടെ അർത്ഥം കിഫ്ബി പ്രസിദ്ധീകരിച്ചിട്ടില്ല. Base One ഉള്ള പദ്ധതികളിൽ മിക്കവയിലും ചെലവ് തുടങ്ങിയിട്ടുണ്ട്; Base Zero ഉള്ളവയിൽ ഒന്നിലും ഇല്ല. രണ്ടും ഞങ്ങൾ പ്രവൃത്തിപദ്ധതി ഘട്ടത്തിൽ വയ്ക്കുന്നു.",
+                    "KIIFB does not set out this order in full anywhere. Its guidelines for road works (2018) place the Project Execution Document after technical sanction, so we put it in that stage. KIIFB has not published what “WBS Base Zero” and “Base One” mean. Most projects at Base One have started spending; none at Base Zero has. We put both in the work plan stage.",
+                )) }
                 div.scroll tabindex="0" role="region" aria-label=(lang.pick("പട്ടിക: വശങ്ങളിലേക്ക് നീക്കാം", "Table, scrolls sideways")) {
                     table {
                         thead { tr { th scope="col" { (lang.pick("ഘട്ടം", "Stage")) } th scope="col" { (lang.pick("കിഫ്ബിയുടെ പദങ്ങൾ", "KIIFB labels containing")) } } }
@@ -83,8 +87,8 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                                     td { b { (stage.label(lang)) } }
                                     td lang="en" {
                                         @match stage {
-                                            Stage::Preparation => "Project Initiated, Project Created, Design Basis Report, Project Execution Document, Submitted for Confirmation",
-                                            Stage::TechnicalSanction => "Technical Sanction",
+                                            Stage::Preparation => "Project Initiated, Project Created, Design Basis Report, Submitted for Confirmation",
+                                            Stage::TechnicalSanction => "Technical Sanction, Project Execution Document",
                                             Stage::Tender => "Tender",
                                             Stage::Contract => "Contract Process",
                                             Stage::WorkPlan => "WBS, Payment milestone",
@@ -152,6 +156,7 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                     "ഞങ്ങൾ കാണിക്കുന്നത് ഉറവിടത്തിൽ നിന്ന് വ്യത്യസ്തമാണെങ്കിൽ അറിയിക്കുക. ഉറവിടവുമായി ഒത്തുനോക്കി ഞങ്ങൾ തിരുത്തും.",
                     "If what we show differs from the source, tell us. We will check it against the source and correct it.",
                 )) }
+                p { a href=(format!("{}/about#corrections", lang.prefix())) { (lang.pick("എങ്ങനെ അറിയിക്കാം", "How to tell us")) } }
             }
         }
     };
@@ -164,13 +169,20 @@ pub fn data(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
         "ഈ സൈറ്റിലെ എല്ലാ വിവരങ്ങളും യന്ത്രങ്ങൾക്ക് വായിക്കാവുന്ന രൂപത്തിൽ ലഭ്യമാണ്. ലോഗിൻ വേണ്ട.",
         "Everything on this site is available in machine-readable form. No login is needed.",
     );
-    let endpoints: [(&str, &str, &str, &str); 6] = [
+    let endpoints: [(&str, &str, &str, &str); 7] = [
         ("/api/v1/projects.csv", "CSV", "സ്പ്രെഡ്ഷീറ്റിൽ തുറക്കാൻ: എല്ലാ പദ്ധതികളും", "All projects, for spreadsheets"),
         ("/api/v1/projects", "JSON", "എല്ലാ പദ്ധതികളും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "All projects, with their works"),
         ("/api/v1/projects.geojson", "GeoJSON", "പദ്ധതി സ്ഥാനങ്ങൾ", "Project locations"),
         ("/api/v1/funding.csv", "CSV", "അനുവദിച്ചതും നൽകിയതും: ഓരോ പ്രവൃത്തിയും ഒരു വരി", "Approved and paid, one row per work"),
         ("/api/v1/funding", "JSON", "അനുവദിച്ചതും നൽകിയതും, പ്രവൃത്തികൾ ഉൾപ്പെടെ", "Approved and paid, with works"),
         ("/api/v1/liability.csv", "CSV", "കരാറുകാരന്റെ ബാധ്യതാ കാലാവധിയിലുള്ള പി.ഡബ്ല്യു.ഡി പ്രവൃത്തികൾ", "PWD works under contractor liability"),
+        ("/api/v1/liability", "JSON", "ബാധ്യതാ കാലാവധിയിലുള്ള പ്രവൃത്തികൾ", "Works under contractor liability"),
+    ];
+    // Paged endpoints: what they return, and an example address.
+    let paged: [(&str, &str, &str, &str); 3] = [
+        ("/api/v1/changes", "/api/v1/changes?since=2026-10-01", "ഞങ്ങൾ രേഖപ്പെടുത്തിയ ഓരോ മാറ്റവും, പുതിയത് ആദ്യം", "Every change we recorded, newest first"),
+        ("/api/v1/flags", "/api/v1/flags?status=all&type=overdue", "സൂചനകൾ: നിലവിലുള്ളവയും നീക്കിയവയും", "Flags, open and cleared"),
+        ("/api/v1/snapshots", "/api/v1/snapshots?source=1", "ഓരോ സംഖ്യയ്ക്കും ആധാരമായ, ഞങ്ങൾ സൂക്ഷിച്ച ഉറവിട പകർപ്പുകൾ", "The stored source copies every figure traces back to"),
     ];
     let body = html! {
         (head(lang, t.data_title, lead))
@@ -196,6 +208,20 @@ pub fn data(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
                         "returns one project's record, flags, recorded changes and source.",
                     ))
                 }
+                h2 { (lang.pick("പേജുകളായി", "In pages")) }
+                p { (lang.pick(
+                    "ഇവ 500 വരികൾ വീതമുള്ള പേജുകളായി നൽകുന്നു; “next” അടുത്ത പേജിന്റെ വിലാസമാണ്. district= ഒരു ജില്ലയിലേക്ക് ചുരുക്കുന്നു.",
+                    "These come 500 rows to a page; “next” is the address of the next page. district= narrows to one district.",
+                )) }
+                ul {
+                    @for (path, example, ml, en) in paged {
+                        li { a href=(example) { span.code { (path) } } " " (lang.pick(ml, en)) }
+                    }
+                }
+                p {
+                    (lang.pick("എല്ലാ വിലാസങ്ങളുടെയും ഫീൽഡുകളുടെയും പൂർണ്ണ വിവരണം (OpenAPI): ", "A full description of every address and field (OpenAPI): "))
+                    a href="/api/v1/openapi.json" { span.code { "/api/v1/openapi.json" } }
+                }
                 h2 { (lang.pick("ഉപയോഗിക്കുമ്പോൾ", "Using the data")) }
                 ul {
                     li { (lang.pick("തുകകൾ മുഴുവൻ രൂപയിലാണ്. തീയതികൾ yyyy-mm-dd രൂപത്തിൽ.", "Amounts are whole rupees. Dates are yyyy-mm-dd.")) }
@@ -208,10 +234,26 @@ pub fn data(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
                         "The “funding” files come from KIIFB's project status page. Where “map_group” is set, it is the dashboard sub-project we joined it to; the join is ours, not KIIFB's.",
                     )) }
                     li { (lang.pick(
-                        "ഉറവിടമായി കിഫ്ബിയെയും സമാഹരിച്ചത് കണക്ക് എന്നും പരാമർശിക്കുക.",
-                        "Credit KIIFB as the source and Kanakku as the compiler.",
+                        "പതിപ്പ് 1-ൽ ഫീൽഡുകൾ കൂട്ടിച്ചേർക്കുകയേ ഉള്ളൂ; പേരു മാറ്റുകയോ നീക്കുകയോ ഇല്ല.",
+                        "Version 1 only grows: fields are added, never renamed or removed.",
                     )) }
                 }
+                h2 #license { (lang.pick("ലൈസൻസ്", "Licence")) }
+                p {
+                    (lang.pick(
+                        "സംഖ്യകൾ അവ പ്രസിദ്ധീകരിച്ച ഉറവിടങ്ങളുടേതാണ് (കിഫ്ബി, പി.ഡബ്ല്യു.ഡി). കണക്ക് കൂട്ടിച്ചേർക്കുന്നവ, അതായത് സമാഹരണം, വൃത്തിയാക്കിയ പേരുകൾ, ഘട്ടങ്ങൾ, സൂചനകൾ, ഉറവിടങ്ങൾ തമ്മിലുള്ള ബന്ധിപ്പിക്കൽ എന്നിവ ",
+                        "The figures belong to the sources that publish them (KIIFB, PWD). What Kanakku adds, namely the compilation, cleaned names, stages, flags and the joins between sources, is licensed ",
+                    ))
+                    a href="https://creativecommons.org/licenses/by/4.0/" rel="license noopener" { "CC BY 4.0" }
+                    (lang.pick(
+                        " ലൈസൻസിലാണ്. ആർക്കും ഉപയോഗിക്കാം, പങ്കുവയ്ക്കാം, മാറ്റം വരുത്താം; ഉറവിടവും കണക്കും പരാമർശിക്കണം എന്നു മാത്രം. ഉദാഹരണം: “ഉറവിടം: കിഫ്ബി; സമാഹരണം: കണക്ക്”.",
+                        ". Anyone may use, share and adapt it, as long as they credit the source and Kanakku, for example “Source: KIIFB, compiled by Kanakku”.",
+                    ))
+                }
+                p { (lang.pick(
+                    "സൈറ്റിന്റെ സോഴ്സ് കോഡ് AGPL-3.0 ലൈസൻസിലാണ്.",
+                    "The site's source code is licensed AGPL-3.0.",
+                )) }
             }
         }
     };
@@ -367,6 +409,101 @@ pub fn status(lang: Lang, origin: &str, status: &Status, now_ms: i64) -> String 
     layout(&page(lang, title, lead, "/status", origin, Nav::None, None), body)
 }
 
+/// How to reach us, as the `CONTACT` setting gives it: an email address or a web address.
+fn contact_link(lang: Lang, contact: &str) -> Markup {
+    let contact = contact.trim();
+    html! {
+        @if contact.contains('@') && !contact.contains('/') {
+            a href=(format!("mailto:{contact}")) { (contact) }
+        } @else if contact.starts_with("https://") {
+            a href=(contact) rel="noopener" { (contact) }
+        } @else {
+            (lang.pick("(ബന്ധപ്പെടാനുള്ള വിലാസം ഉടൻ ഇവിടെ ചേർക്കും)", "(a contact address will be added here shortly)"))
+        }
+    }
+}
+
+/// Who runs the site, how to get a mistake corrected or personal data removed, and what is kept about visitors.
+pub fn about(lang: Lang, origin: &str, contact: &str) -> String {
+    let title = lang.pick("കണക്കിനെക്കുറിച്ച്", "About Kanakku");
+    let lead = lang.pick(
+        "ആര് നടത്തുന്നു, തെറ്റുകൾ എങ്ങനെ തിരുത്തുന്നു, എന്തെല്ലാം ഞങ്ങൾ സൂക്ഷിക്കുന്നു.",
+        "Who runs it, how mistakes are corrected, and what we keep.",
+    );
+    let data = format!("{}/data#license", lang.prefix());
+    let body = html! {
+        (head(lang, title, lead))
+        div.wrap {
+            div.prose {
+                h2 #who { (lang.pick("ആര് നടത്തുന്നു", "Who runs it")) }
+                p { (lang.pick(
+                    "കണക്ക് കേരളത്തിലെ ഒരു സ്വതന്ത്ര പൗര സംരംഭമാണ്. കിഫ്ബി, സർക്കാർ, ഏതെങ്കിലും രാഷ്ട്രീയ കക്ഷി എന്നിവയുമായി ബന്ധമില്ല; അവരിൽ നിന്ന് പണമോ നിർദ്ദേശമോ സ്വീകരിക്കുന്നില്ല. ഇപ്പോൾ ഇത് നടത്തുന്നയാളുടെ സ്വന്തം ചെലവിലാണ് പ്രവർത്തിക്കുന്നത്. പരസ്യങ്ങളില്ല.",
+                    "Kanakku is an independent civic project from Kerala. It is not affiliated with KIIFB, the government or any political party, and takes no money or direction from them. It is currently paid for by the person who runs it. There are no advertisements.",
+                )) }
+                p { (lang.pick(
+                    "ഈ സൈറ്റ് എന്തു ചെയ്യുന്നു എന്നതിന് ഒരു നിയമമേയുള്ളൂ: സർക്കാർ പ്രസിദ്ധീകരിക്കുന്ന സംഖ്യകൾ ഉറവിടത്തോടൊപ്പം കാണിക്കുക, എല്ലാവർക്കും ഒരേ നിയമങ്ങൾ ഉപയോഗിക്കുക. എങ്ങനെയെന്ന് “രീതി” താളിൽ വിശദീകരിക്കുന്നു.",
+                    "The site has one rule for what it does: show the figures the government publishes, next to their source, with the same rules for everyone. The method page explains how.",
+                )) }
+                p { a href=(format!("{}/methodology", lang.prefix())) { (lang.t().nav_methodology) } }
+
+                h2 #corrections { (lang.pick("തിരുത്തലുകൾ", "Corrections")) }
+                p { (lang.pick(
+                    "ഇവിടെ കാണിക്കുന്ന ഒരു സംഖ്യയോ പേരോ തീയതിയോ ഉറവിടത്തിൽ നിന്ന് വ്യത്യസ്തമാണെങ്കിൽ, അല്ലെങ്കിൽ ഒരു സൂചന തെറ്റായാണ് വന്നതെന്ന് തോന്നുന്നെങ്കിൽ, ഇവിടെ എഴുതുക: ",
+                    "If a figure, name or date here differs from its source, or a flag looks wrong, write to: ",
+                )) (contact_link(lang, contact)) }
+                @match lang {
+                    Lang::Ml => ul {
+                        li { "താളിന്റെ വിലാസവും എന്താണ് തെറ്റെന്നും, സാധിക്കുമെങ്കിൽ ശരിയായ വിവരത്തിന്റെ ഉറവിടവും ചേർക്കുക." }
+                        li { "ഏഴു ദിവസത്തിനകം മറുപടി നൽകും." }
+                        li { "തെറ്റ് ഞങ്ങളുടെ വായനയിലോ കണക്കുകൂട്ടലിലോ ആണെങ്കിൽ, ഉറവിടവുമായി ഒത്തുനോക്കി ഏഴു ദിവസത്തിനകം തിരുത്തും. ഒരു സൂചന തെറ്റായി വന്നതാണെങ്കിൽ അത് നീക്കും, അക്കാര്യം പദ്ധതിയുടെ താളിൽ രേഖപ്പെടുത്തും." }
+                        li { "തെറ്റ് ഉറവിടത്തിൽ തന്നെയാണെങ്കിൽ (ഉദാഹരണത്തിന് കിഫ്ബിയുടെ ഡാഷ്ബോർഡിൽ), ഞങ്ങൾക്ക് അത് മാറ്റാനാവില്ല; അക്കാര്യം നിങ്ങളെ അറിയിക്കും, പ്രസിദ്ധീകരിച്ച സ്ഥാപനത്തെ സമീപിക്കാം." }
+                    },
+                    Lang::En => ul {
+                        li { "Include the page's address, what is wrong and, if you can, where the correct figure is published." }
+                        li { "We reply within seven days." }
+                        li { "If the mistake is in how we read or calculated something, we check it against the source and correct it within seven days. A flag raised in error is removed, and the removal is recorded on the project's page." }
+                        li { "If the figure is wrong at the source itself (on KIIFB's dashboard, say), we cannot change it. We will tell you so, and you can raise it with the body that published it." }
+                    },
+                }
+
+                h2 #takedown { (lang.pick("വിവരങ്ങൾ നീക്കാനുള്ള അപേക്ഷ", "Requests to remove information")) }
+                p { (lang.pick(
+                    "പൊതുപണം ചെലവഴിക്കുന്നതിനെക്കുറിച്ച് സർക്കാർ സ്ഥാപനങ്ങൾ പ്രസിദ്ധീകരിച്ച രേഖകൾ ഈ സൈറ്റിന്റെ ഉള്ളടക്കമാണ്: പദ്ധതികൾ, തുകകൾ, തീയതികൾ, കരാറുകാരുടെ പേരുകൾ, ജനപ്രതിനിധികളുടെ പേരുകൾ. ഇവ അസൗകര്യകരമാണെന്ന കാരണത്താൽ മാത്രം നീക്കില്ല. ഉറവിടത്തിൽ തിരുത്തിയാൽ ഇവിടെയും അടുത്ത വായനയിൽ മാറും.",
+                    "This site is made of records government bodies publish about public spending: projects, amounts, dates, contractors' names and the names of elected representatives. We do not remove them because they are inconvenient. When the source corrects them, they change here at the next read.",
+                )) }
+                p { (lang.pick(
+                    "സ്വകാര്യ വ്യക്തികളുടെ ഫോൺ നമ്പറുകളും വീട്ടുവിലാസങ്ങളും ഞങ്ങൾ സൂക്ഷിക്കുകയോ കാണിക്കുകയോ ചെയ്യുന്നില്ല; ഉറവിടത്തിലുണ്ടെങ്കിലും. അത്തരം വിവരം ഇവിടെ എവിടെയെങ്കിലും കണ്ടാൽ മുകളിലെ വിലാസത്തിൽ അറിയിക്കുക; ഉടൻ നീക്കും. നിയമപരമായ അറിയിപ്പുകളും അതേ വിലാസത്തിലേക്ക് അയക്കുക.",
+                    "We do not keep or show private individuals' phone numbers or home addresses, even where a source prints them. If you find such information anywhere here, write to the address above and we will remove it promptly. Legal notices go to the same address.",
+                )) }
+
+                h2 #privacy { (lang.pick("സ്വകാര്യത", "Privacy")) }
+                @match lang {
+                    Lang::Ml => ul {
+                        li { "അക്കൗണ്ടുകളില്ല, കുക്കികളില്ല, പരസ്യ ട്രാക്കറുകളില്ല." }
+                        li { "ഓരോ തരം താളും ഓരോ ദിവസവും എത്ര തവണ തുറന്നു എന്ന് മാത്രം എണ്ണുന്നു. ഒരു തിരച്ചിലിൽ ഒന്നും കിട്ടിയില്ലെങ്കിൽ ആ വാക്കുകളും എണ്ണവും സൂക്ഷിക്കുന്നു; ആര് തിരഞ്ഞു എന്നില്ല. ഇമെയിൽ വിലാസമോ ഫോൺ നമ്പറോ പോലെ തോന്നുന്നവ സൂക്ഷിക്കില്ല." }
+                        li { "ഐ.പി വിലാസങ്ങൾ ഞങ്ങൾ സൂക്ഷിക്കുന്നില്ല. സൈറ്റ് പ്രവർത്തിക്കുന്നത് ക്ലൗഡ്ഫ്ലെയറിലാണ്; സേവനം നൽകുന്നതിനായി അവർ സാങ്കേതിക വിവരങ്ങൾ കൈകാര്യം ചെയ്യുന്നു." }
+                        li { "ഇന്റർനെറ്റ് ഇല്ലാതെ വായിക്കാനായി നിങ്ങൾ തുറന്ന താളുകൾ നിങ്ങളുടെ ഉപകരണത്തിൽ തന്നെ സൂക്ഷിക്കുന്നു; അത് ഞങ്ങളിലേക്ക് എത്തുന്നില്ല." }
+                    },
+                    Lang::En => ul {
+                        li { "No accounts, no cookies, no advertising trackers." }
+                        li { "We count only how often each kind of page is opened each day. When a search finds nothing, we keep the words and a count, not who searched; text that looks like an email address or phone number is not kept." }
+                        li { "We do not store IP addresses. The site runs on Cloudflare, which handles technical data in order to serve it." }
+                        li { "Pages you open are saved on your own device so they can be read offline; that copy never reaches us." }
+                    },
+                }
+
+                h2 #licences { (lang.pick("ലൈസൻസുകൾ", "Licences")) }
+                p {
+                    (lang.pick("ഡാറ്റ: CC BY 4.0 (", "Data: CC BY 4.0 ("))
+                    a href=(data) { (lang.pick("വിശദമായി", "details")) }
+                    (lang.pick("). സോഴ്സ് കോഡ്: AGPL-3.0.", "). Source code: AGPL-3.0."))
+                }
+            }
+        }
+    };
+    layout(&page(lang, title, lead, "/about", origin, Nav::None, None), body)
+}
+
 fn view_kind_label(lang: Lang, kind: &str) -> String {
     match kind {
         "home" => lang.pick("മുൻതാൾ", "Front page"),
@@ -382,6 +519,7 @@ fn view_kind_label(lang: Lang, kind: &str) -> String {
         "methodology" => lang.pick("രീതി", "Method"),
         "data" => lang.pick("ഡാറ്റ", "Data"),
         "status" => lang.pick("പ്രവർത്തന നില", "Status"),
+        "about" => lang.pick("കണക്കിനെക്കുറിച്ച്", "About"),
         other => return other.to_string(),
     }
     .to_string()

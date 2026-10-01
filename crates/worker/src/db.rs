@@ -1098,3 +1098,108 @@ pub async fn agency(db: &D1Database, key: &str) -> Result<Option<AgencyPage>> {
     let Some(row) = results[0].results::<AgencyRow>()?.into_iter().next() else { return Ok(None) };
     Ok(Some(AgencyPage { row, funded: results[1].results()?, packages: results[2].results()? }))
 }
+
+/// Rows per page on the paged API endpoints.
+pub const API_PAGE_SIZE: u32 = 500;
+
+/// One recorded change to a field, from either KIIFB source.
+#[derive(Debug, Deserialize)]
+pub struct ChangeRow {
+    pub source: String,
+    pub record: String,
+    pub field: String,
+    pub old_value: Option<String>,
+    pub new_value: Option<String>,
+    pub observed_on: String,
+    pub snapshot_id: i64,
+}
+
+/// Recorded changes on or after `since` (`yyyy-mm-dd`, or empty for all), newest first.
+pub async fn changes(db: &D1Database, since: &str, district: &str, page: u32) -> Result<(Vec<ChangeRow>, u32)> {
+    let union = format!(
+        "SELECT 'dashboard' AS source, p.code AS record, o.field, o.old_value, o.new_value, o.observed_on, o.snapshot_id, o.id
+           FROM observations o JOIN projects p ON p.id = o.project_id
+          WHERE o.observed_on >= ?2 AND {IN_DISTRICT}
+         UNION ALL
+         SELECT 'status', f.ref, o.field, o.old_value, o.new_value, o.observed_on, o.snapshot_id, o.id
+           FROM funding_observations o JOIN funding_projects f ON f.id = o.funding_project_id
+          WHERE o.observed_on >= ?2 AND {FUNDED_IN_DISTRICT}"
+    );
+    let offset = (page.max(1) - 1) * API_PAGE_SIZE;
+    let results = db
+        .batch(vec![
+            query!(db, &format!("SELECT * FROM ({union}) ORDER BY observed_on DESC, source, id DESC LIMIT ?3 OFFSET ?4"), district, since, API_PAGE_SIZE, offset)?,
+            query!(db, &format!("SELECT COUNT(*) AS n FROM ({union})"), district, since)?,
+        ])
+        .await?;
+    Ok((results[0].results()?, results[1].results::<Count>()?.into_iter().next().map(|c| c.n).unwrap_or(0)))
+}
+
+/// One flag, from either KIIFB source.
+#[derive(Debug, Deserialize)]
+pub struct ApiFlagRow {
+    pub source: String,
+    pub record: String,
+    pub work_ref: Option<String>,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub rule_version: i64,
+    pub value_json: String,
+    pub status: String,
+    pub created_on: String,
+    pub cleared_on: Option<String>,
+    pub snapshot_id: i64,
+}
+
+/// Flags in a status (`open`, `cleared` or `all`), optionally of one type, newest first.
+pub async fn flags(db: &D1Database, status: &str, kind: &str, district: &str, page: u32) -> Result<(Vec<ApiFlagRow>, u32)> {
+    let union = format!(
+        "SELECT 'dashboard' AS source, p.code AS record, g.work_ref, g.type, g.rule_version, g.value_json, g.status, g.created_on, g.cleared_on, g.snapshot_id, g.id
+           FROM flags g JOIN projects p ON p.id = g.project_id
+          WHERE (?2 = 'all' OR g.status = ?2) AND (?3 = '' OR g.type = ?3) AND {IN_DISTRICT}
+         UNION ALL
+         SELECT 'status', f.ref, g.work_ref, g.type, g.rule_version, g.value_json, g.status, g.created_on, g.cleared_on, g.snapshot_id, g.id
+           FROM funding_flags g JOIN funding_projects f ON f.id = g.funding_project_id
+          WHERE (?2 = 'all' OR g.status = ?2) AND (?3 = '' OR g.type = ?3) AND {FUNDED_IN_DISTRICT}"
+    );
+    let offset = (page.max(1) - 1) * API_PAGE_SIZE;
+    let results = db
+        .batch(vec![
+            query!(db, &format!("SELECT * FROM ({union}) ORDER BY created_on DESC, source, id DESC LIMIT ?4 OFFSET ?5"), district, status, kind, API_PAGE_SIZE, offset)?,
+            query!(db, &format!("SELECT COUNT(*) AS n FROM ({union})"), district, status, kind)?,
+        ])
+        .await?;
+    Ok((results[0].results()?, results[1].results::<Count>()?.into_iter().next().map(|c| c.n).unwrap_or(0)))
+}
+
+/// One stored copy of a source page.
+#[derive(Debug, Deserialize)]
+pub struct SnapshotListRow {
+    pub id: i64,
+    pub source_id: u32,
+    pub source: String,
+    pub url: String,
+    pub sha256: String,
+    pub bytes: i64,
+    pub fetched_at: String,
+}
+
+/// Stored copies, newest first; `source_id` 0 for every source.
+pub async fn snapshots(db: &D1Database, source_id: u32, page: u32) -> Result<(Vec<SnapshotListRow>, u32)> {
+    let offset = (page.max(1) - 1) * API_PAGE_SIZE;
+    let results = db
+        .batch(vec![
+            query!(
+                db,
+                "SELECT s.id, s.source_id, src.name AS source, s.url, s.sha256, s.bytes, s.fetched_at
+                   FROM snapshots s JOIN sources src ON src.id = s.source_id
+                  WHERE ?1 = 0 OR s.source_id = ?1 ORDER BY s.id DESC LIMIT ?2 OFFSET ?3",
+                source_id,
+                API_PAGE_SIZE,
+                offset,
+            )?,
+            query!(db, "SELECT COUNT(*) AS n FROM snapshots WHERE ?1 = 0 OR source_id = ?1", source_id)?,
+        ])
+        .await?;
+    Ok((results[0].results()?, results[1].results::<Count>()?.into_iter().next().map(|c| c.n).unwrap_or(0)))
+}

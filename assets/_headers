@@ -8,3 +8,6 @@
   Cache-Control: no-cache
 /register.js
   Cache-Control: public, max-age=86400
+/api/v1/openapi.json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
