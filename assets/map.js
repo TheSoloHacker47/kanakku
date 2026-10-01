@@ -9,12 +9,16 @@
   var map = L.map(el, { minZoom: 7, maxZoom: 16, maxBounds: [[7.5, 73.5], [13.5, 78.5]], preferCanvas: true }).setView([10.4, 76.4], 7);
   map.attributionControl.setPrefix(false);
 
+  // Browsers keep byte ranges of the basemap for a day. Change this whenever a new file is
+  // uploaded, so ranges of the old file are never mixed with the new one.
+  var TILES = "/tiles/kerala.pmtiles?v=20260930";
+
   // Without the basemap file the pins still show, on a plain ground.
-  fetch("/tiles/kerala.pmtiles", { method: "HEAD" }).then(function (r) {
+  fetch(TILES, { method: "HEAD" }).then(function (r) {
     if (!r.ok) return;
     protomapsL
       .leafletLayer({
-        url: "/tiles/kerala.pmtiles",
+        url: TILES,
         flavor: "light",
         lang: el.dataset.lang,
         maxDataZoom: 12,

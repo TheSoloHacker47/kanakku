@@ -10,4 +10,5 @@ pmtiles extract "https://build.protomaps.com/$BUILD.pmtiles" tiles/kerala.pmtile
 pmtiles show tiles/kerala.pmtiles
 echo
 echo "Upload for local dev:  npx wrangler r2 object put kanakku/tiles/kerala.pmtiles --file tiles/kerala.pmtiles --local"
+echo "Then set the date in TILES in assets/map.js to $BUILD, so browsers drop their cached copy."
 echo "Upload for production: npx wrangler r2 object put kanakku/tiles/kerala.pmtiles --file tiles/kerala.pmtiles --remote"
