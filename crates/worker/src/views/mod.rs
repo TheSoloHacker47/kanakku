@@ -153,6 +153,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                                 }
                                 li { a href="https://www.pwd.kerala.gov.in/IMF_website/Projects/wings_list.php" rel="noopener" { (lang.pick("പി.ഡബ്ല്യു.ഡി ഡി.എൽ.പി പട്ടിക", "PWD liability list")) } }
                                 li { (lang.pick("ഭൂപടം", "Maps")) ": © OpenStreetMap" }
+                                li { a href="https://github.com/TheSoloHacker47/kanakku" rel="noopener" { (lang.pick("സോഴ്സ് കോഡ് (AGPL)", "Source code (AGPL)")) } }
                             }
                         }
                         p.fine {

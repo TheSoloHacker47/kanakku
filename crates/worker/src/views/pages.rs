@@ -496,7 +496,8 @@ pub fn about(lang: Lang, origin: &str, contact: &str) -> String {
                 p {
                     (lang.pick("ഡാറ്റ: CC BY 4.0 (", "Data: CC BY 4.0 ("))
                     a href=(data) { (lang.pick("വിശദമായി", "details")) }
-                    (lang.pick("). സോഴ്സ് കോഡ്: AGPL-3.0.", "). Source code: AGPL-3.0."))
+                    (lang.pick("). സോഴ്സ് കോഡ്: AGPL-3.0, ", "). Source code: AGPL-3.0, "))
+                    a href="https://github.com/TheSoloHacker47/kanakku" rel="noopener" { "GitHub" } "."
                 }
             }
         }
