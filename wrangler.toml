@@ -2,10 +2,6 @@ name = "kanakku"
 main = "crates/worker/build/index.js"
 compatibility_date = "2026-09-01"
 
-[build]
-command = "cd crates/worker && worker-build --release"
-watch_dir = ["crates/core/src", "crates/worker/src"]
-
 # The site's address. www and the workers.dev address redirect here; the cron and
 # POST /admin/ingest keep working on workers.dev.
 routes = [
@@ -13,6 +9,10 @@ routes = [
   { pattern = "www.keralakanakku.com", custom_domain = true },
 ]
 workers_dev = true
+
+[build]
+command = "cd crates/worker && worker-build --release"
+watch_dir = ["crates/core/src", "crates/worker/src"]
 
 [assets]
 directory = "./assets"

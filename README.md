@@ -2,6 +2,8 @@
 
 Public project accountability for Kerala: what was sanctioned, who got the contract, what has been paid, how far the work has come. It covers KIIFB projects in all 14 districts from two KIIFB sources, and the Public Works Department's list of finished works still under contractor liability. Every number links to a stored copy of its source.
 
+Live at **https://keralakanakku.com** (Malayalam) and https://keralakanakku.com/en/ (English). `www.` and the old `kanakku.thesolohacker47.workers.dev` address redirect there; `POST /admin/ingest` works on either host.
+
 The product spec is in [kanakku-spec.md](kanakku-spec.md). The design of this build is in [docs/design.md](docs/design.md).
 
 ## How it is built

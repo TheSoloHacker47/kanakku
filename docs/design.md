@@ -293,3 +293,7 @@ Lighthouse (mobile, all page kinds): accessibility 100, best practices 100 (96 o
 | OpenAPI | `assets/api/v1/openapi.json` | Static, CORS open |
 | Stages | `stage::from_status`, migration 0010 | Project Execution Document moved from Preparation to Technical sanction, per KIIFB's 2018 roads guidelines and the data (those projects already carry sanction and tender amounts). Base Zero and Base One remain undocumented by KIIFB; Base Zero projects show no spending. |
 | Keyboard | all pages | Every control focusable with a visible ring; the filter panel opens with Enter |
+
+## Build 8: custom domain
+
+`keralakanakku.com` (kanakku.in, .com, .org and .app were taken) is attached as a Workers custom domain, with `www.` too. `CANONICAL_HOST` makes page requests on `www.` and on the workers.dev address answer 301 to the same path on the domain; POSTs and local hosts are left alone, so the admin endpoint and `wrangler dev` are unaffected. The Cache API works on the custom domain (`cf-cache-status: HIT` on the second request), which it did not on workers.dev.
