@@ -86,6 +86,11 @@ impl Date {
     pub fn plus_days(self, days: i32) -> Date {
         Date(self.0 + days)
     }
+
+    /// Day of the week, Monday 0 to Sunday 6. 1970-01-01 was a Thursday.
+    pub fn weekday(self) -> u32 {
+        (self.0 + 3).rem_euclid(7) as u32
+    }
 }
 
 /// Dates travel as `yyyy-mm-dd` strings, in the database and in the open data.
@@ -172,5 +177,12 @@ mod tests {
         let before = 1_790_792_999_000;
         assert_eq!(Date::from_unix_ms_ist(before).to_iso(), "2026-09-30");
         assert_eq!(Date::from_unix_ms_ist(before + 1_000).to_iso(), "2026-10-01");
+    }
+
+    #[test]
+    fn weekdays() {
+        assert_eq!(Date::from_ymd(1970, 1, 1).unwrap().weekday(), 3, "a Thursday");
+        assert_eq!(Date::from_ymd(2026, 10, 5).unwrap().weekday(), 0, "a Monday");
+        assert_eq!(Date::from_ymd(2026, 10, 4).unwrap().weekday(), 6, "a Sunday");
     }
 }

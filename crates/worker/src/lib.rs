@@ -3,6 +3,7 @@
 use kanakku_core::i18n::Lang;
 use kanakku_core::model::Project;
 use kanakku_core::names;
+use kanakku_core::visits;
 use worker::{
     console_error, console_log, event, Cache, Context, Env, Error, Headers, Method, Request, Response, Result, ScheduleContext,
     ScheduledEvent,
@@ -84,6 +85,13 @@ async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     if !matches!(&result, Ok(report) if report.skipped) {
         runs::record(&env, 3, "cron", &started, &result).await;
     }
+
+    // The 02:30 IST run on a Monday also sends last week's summary.
+    if kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64).weekday() == 0 {
+        if let Err(e) = runs::digest(&env).await {
+            console_error!("weekly digest failed: {e}");
+        }
+    }
 }
 
 fn log_outcome<T: serde::Serialize>(name: &str, result: &Result<T>) {
@@ -91,6 +99,29 @@ fn log_outcome<T: serde::Serialize>(name: &str, result: &Result<T>) {
         Ok(report) => console_log!("{name} ingest ok: {}", serde_json::to_string(report).unwrap_or_default()),
         Err(e) => console_error!("{name} ingest failed: {e}"),
     }
+}
+
+/// The campaign tag on a URL (`ref` or `utm_source`) and the same URL without any campaign
+/// parameters. `None` when the URL carries none. The tag is `None` when it is not one we could
+/// have handed out.
+fn strip_campaign(url: &worker::Url) -> Option<(Option<String>, worker::Url)> {
+    let is_campaign = |k: &str| k == "ref" || k.starts_with("utm_");
+    if !url.query_pairs().any(|(k, _)| is_campaign(&k)) {
+        return None;
+    }
+    let tag = url
+        .query_pairs()
+        .find(|(k, _)| k == "ref")
+        .or_else(|| url.query_pairs().find(|(k, _)| k == "utm_source"))
+        .and_then(|(_, v)| visits::campaign_tag(&v));
+    let kept: Vec<(String, String)> = url.query_pairs().filter(|(k, _)| !is_campaign(k)).map(|(k, v)| (k.into_owned(), v.into_owned())).collect();
+    let mut clean = url.clone();
+    if kept.is_empty() {
+        clean.set_query(None);
+    } else {
+        clean.query_pairs_mut().clear().extend_pairs(kept);
+    }
+    Some((tag, clean))
 }
 
 /// Serves a GET from the edge cache when it can, and fills the cache when it cannot.
@@ -102,9 +133,33 @@ async fn cached(req: Request, env: &Env, ctx: &Context) -> Result<Response> {
     // Count the visit whether or not the page comes from the cache.
     if req.method() == Method::Get {
         let robot = req.headers().get("User-Agent")?.is_none_or(|ua| runs::is_robot(&ua));
-        if let Some((kind, lang)) = runs::view_kind(&req.path()).filter(|_| !robot) {
+        let page_kind = runs::view_kind(&req.path());
+        // A tagged link we handed out (?ref=datameet): count the tag, then send the reader to the
+        // same page without it, so the tag is not copied onward and the cache sees one address.
+        if page_kind.is_some() {
+            if let Some((tag, clean)) = strip_campaign(&req.url()?) {
+                if let Some(tag) = tag.filter(|_| !robot) {
+                    let env = env.clone();
+                    ctx.wait_until(async move { runs::count_tag(&env, &tag).await });
+                }
+                let headers = Headers::new();
+                headers.set("Location", clean.as_str())?;
+                headers.set("Cache-Control", "no-store")?;
+                return Ok(Response::empty()?.with_status(302).with_headers(headers));
+            }
+        }
+        if let Some((kind, lang)) = page_kind.filter(|_| !robot) {
+            let url = req.url()?;
+            let own: Vec<String> = [url.host_str().unwrap_or_default().to_string(), env.var("CANONICAL_HOST").map(|v| v.to_string()).unwrap_or_default()]
+                .into_iter()
+                .filter(|h| !h.is_empty())
+                .collect();
+            let own: Vec<&str> = own.iter().map(String::as_str).collect();
+            let source = req.headers().get("Referer")?.and_then(|r| visits::referrer_source(&r, &own));
+            let path = req.path();
+            let page = visits::page_key(path.strip_prefix("/en").unwrap_or(&path));
             let env = env.clone();
-            ctx.wait_until(async move { runs::count_view(&env, kind, lang).await });
+            ctx.wait_until(async move { runs::count_view(&env, kind, lang, source, page).await });
         }
     }
 
@@ -471,11 +526,15 @@ fn is_code(s: &str) -> bool {
 }
 
 async fn admin(mut req: Request, env: &Env) -> Result<Response> {
-    if req.path() != "/admin/ingest" {
+    if req.path() != "/admin/ingest" && req.path() != "/admin/digest" {
         return Response::error("Not found", 404);
     }
     if !authorised(&req, env) {
         return Response::error("Unauthorised", 401);
+    }
+    // Sends the weekly summary now, to check the webhook and the numbers.
+    if req.path() == "/admin/digest" {
+        return Response::ok(runs::digest(env).await?);
     }
     let url = req.url()?;
     let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, value)| value.into_owned());

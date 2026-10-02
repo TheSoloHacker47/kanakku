@@ -920,10 +920,31 @@ pub struct ViewCount {
     pub month: u32,
 }
 
+/// A count for one key (a source, tag or page) over the last week and month.
+#[derive(Debug, Deserialize)]
+pub struct KeyCount {
+    pub key: String,
+    pub week: u32,
+    pub month: u32,
+}
+
 pub struct Status {
     pub sources: Vec<SourceStatus>,
     pub runs: Vec<RunRow>,
     pub views: Vec<ViewCount>,
+    /// Sites readers came from, most first.
+    pub referrers: Vec<KeyCount>,
+    /// Tags on links we handed out.
+    pub tags: Vec<KeyCount>,
+}
+
+/// The top keys of one kind in `visit_counts` over the last 30 days, with the last 7 beside them.
+fn top_keys(kind: &str, limit: u32) -> String {
+    format!(
+        "SELECT key, COALESCE(SUM(CASE WHEN day >= date('now', '+330 minutes', '-6 days') THEN n END), 0) AS week, SUM(n) AS month
+         FROM visit_counts WHERE kind = '{kind}' AND day >= date('now', '+330 minutes', '-29 days')
+         GROUP BY key ORDER BY month DESC, key LIMIT {limit}"
+    )
 }
 
 pub async fn status(db: &D1Database) -> Result<Status> {
@@ -940,9 +961,17 @@ pub async fn status(db: &D1Database) -> Result<Status> {
                 "SELECT kind, COALESCE(SUM(CASE WHEN day >= date('now', '+330 minutes', '-6 days') THEN n END), 0) AS week, SUM(n) AS month
                  FROM page_views WHERE day >= date('now', '+330 minutes', '-29 days') GROUP BY kind ORDER BY month DESC",
             ),
+            db.prepare(top_keys("source", 15)),
+            db.prepare(top_keys("tag", 15)),
         ])
         .await?;
-    Ok(Status { sources: results[0].results()?, runs: results[1].results()?, views: results[2].results()? })
+    Ok(Status {
+        sources: results[0].results()?,
+        runs: results[1].results()?,
+        views: results[2].results()?,
+        referrers: results[3].results()?,
+        tags: results[4].results()?,
+    })
 }
 
 /// One contractor across the sources.
@@ -1202,4 +1231,55 @@ pub async fn snapshots(db: &D1Database, source_id: u32, page: u32) -> Result<(Ve
         ])
         .await?;
     Ok((results[0].results()?, results[1].results::<Count>()?.into_iter().next().map(|c| c.n).unwrap_or(0)))
+}
+
+/// The numbers in the weekly digest, for the 7 days ending `today` (IST).
+pub struct Digest {
+    pub this_week: u32,
+    pub last_week: u32,
+    pub sources: Vec<NamedCount>,
+    pub tags: Vec<NamedCount>,
+    pub pages: Vec<NamedCount>,
+    pub misses: Vec<NamedCount>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NamedCount {
+    pub key: String,
+    pub n: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct Total {
+    n: Option<u32>,
+}
+
+pub async fn digest(db: &D1Database, from: &str, to: &str, prev_from: &str) -> Result<Digest> {
+    let week_of = |kind: &str, limit: u32| {
+        query!(
+            db,
+            &format!("SELECT key, SUM(n) AS n FROM visit_counts WHERE kind = '{kind}' AND day BETWEEN ?1 AND ?2 GROUP BY key ORDER BY n DESC, key LIMIT {limit}"),
+            from,
+            to,
+        )
+    };
+    let results = db
+        .batch(vec![
+            query!(db, "SELECT SUM(n) AS n FROM page_views WHERE day BETWEEN ?1 AND ?2", from, to)?,
+            query!(db, "SELECT SUM(n) AS n FROM page_views WHERE day >= ?1 AND day < ?2", prev_from, from)?,
+            week_of("source", 6)?,
+            week_of("tag", 6)?,
+            week_of("page", 10)?,
+            query!(db, "SELECT q AS key, SUM(n) AS n FROM search_misses WHERE day BETWEEN ?1 AND ?2 GROUP BY q ORDER BY n DESC, q LIMIT 6", from, to)?,
+        ])
+        .await?;
+    let total = |i: usize| -> Result<u32> { Ok(results[i].results::<Total>()?.into_iter().next().and_then(|t| t.n).unwrap_or(0)) };
+    Ok(Digest {
+        this_week: total(0)?,
+        last_week: total(1)?,
+        sources: results[2].results()?,
+        tags: results[3].results()?,
+        pages: results[4].results()?,
+        misses: results[5].results()?,
+    })
 }

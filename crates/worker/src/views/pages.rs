@@ -399,9 +399,29 @@ pub fn status(lang: Lang, origin: &str, status: &Status, now_ms: i64) -> String 
                         }
                     }
                 }
+                @if !status.referrers.is_empty() || !status.tags.is_empty() {
+                    h3 { (lang.pick("വായനക്കാർ എവിടെ നിന്ന്", "Where readers come from")) }
+                    div.scroll tabindex="0" role="region" aria-label=(lang.pick("പട്ടിക: വശങ്ങളിലേക്ക് നീക്കാം", "Table, scrolls sideways")) {
+                        table {
+                            thead { tr {
+                                th scope="col" { (lang.pick("സൈറ്റ് അല്ലെങ്കിൽ ലിങ്ക്", "Site or link")) }
+                                th scope="col" { (lang.pick("കഴിഞ്ഞ 7 ദിവസം", "Last 7 days")) }
+                                th scope="col" { (lang.pick("കഴിഞ്ഞ 30 ദിവസം", "Last 30 days")) }
+                            } }
+                            tbody {
+                                @for r in &status.referrers {
+                                    tr { td lang="en" { (r.key) } td { (r.week) } td { (r.month) } }
+                                }
+                                @for t in &status.tags {
+                                    tr { td { (lang.pick("പങ്കിട്ട ലിങ്ക്: ", "Shared link: ")) span lang="en" { (t.key) } } td { (t.week) } td { (t.month) } }
+                                }
+                            }
+                        }
+                    }
+                }
                 p.small.muted { (lang.pick(
-                    "ഓരോ തരം താളും ഓരോ ദിവസം എത്ര തവണ തുറന്നു എന്നു മാത്രം ഞങ്ങൾ എണ്ണുന്നു. കുക്കികളില്ല, ഐ.പി വിലാസങ്ങൾ സൂക്ഷിക്കുന്നില്ല, ആരെയും തിരിച്ചറിയുന്നില്ല. അറിയപ്പെടുന്ന യന്ത്രങ്ങളെ ഒഴിവാക്കുന്നു. ഒരു തിരച്ചിലിൽ ഒന്നും കിട്ടിയില്ലെങ്കിൽ, തിരച്ചിൽ മെച്ചപ്പെടുത്താൻ ആ വാക്കുകളും അവയുടെ എണ്ണവും മാത്രം സൂക്ഷിക്കുന്നു; ആര് തിരഞ്ഞു എന്നില്ല.",
-                    "We count only how often each kind of page is opened each day. No cookies, no stored addresses, nothing that identifies anyone. Known robots are left out. When a search finds nothing, we keep the words and a count, to improve the search; not who searched.",
+                    "ഓരോ തരം താളും ഓരോ ദിവസം എത്ര തവണ തുറന്നു, വായനക്കാർ ഏത് സൈറ്റിൽ നിന്ന് വന്നു (സൈറ്റിന്റെ പേര് മാത്രം, മുഴുവൻ വിലാസമല്ല), ഞങ്ങൾ പങ്കിട്ട ലിങ്കുകളിലെ ടാഗുകൾ, ഓരോ പദ്ധതിത്താളും എത്ര തവണ വായിച്ചു എന്നിവ മാത്രം ഞങ്ങൾ എണ്ണുന്നു. കുക്കികളില്ല, ഐ.പി വിലാസങ്ങൾ സൂക്ഷിക്കുന്നില്ല, ആരെയും തിരിച്ചറിയുന്നില്ല. അറിയപ്പെടുന്ന യന്ത്രങ്ങളെ ഒഴിവാക്കുന്നു. ഒരു തിരച്ചിലിൽ ഒന്നും കിട്ടിയില്ലെങ്കിൽ, തിരച്ചിൽ മെച്ചപ്പെടുത്താൻ ആ വാക്കുകളും അവയുടെ എണ്ണവും മാത്രം സൂക്ഷിക്കുന്നു; ആര് തിരഞ്ഞു എന്നില്ല.",
+                    "We count only how often each kind of page is opened each day, which site readers came from (its name only, never the full address), tags on links we share, and how often each project page is read. No cookies, no stored addresses, nothing that identifies anyone. Known robots are left out. When a search finds nothing, we keep the words and a count, to improve the search; not who searched.",
                 )) }
             }
         }
@@ -480,13 +500,13 @@ pub fn about(lang: Lang, origin: &str, contact: &str) -> String {
                 @match lang {
                     Lang::Ml => ul {
                         li { "അക്കൗണ്ടുകളില്ല, കുക്കികളില്ല, പരസ്യ ട്രാക്കറുകളില്ല." }
-                        li { "ഓരോ തരം താളും ഓരോ ദിവസവും എത്ര തവണ തുറന്നു എന്ന് മാത്രം എണ്ണുന്നു. ഒരു തിരച്ചിലിൽ ഒന്നും കിട്ടിയില്ലെങ്കിൽ ആ വാക്കുകളും എണ്ണവും സൂക്ഷിക്കുന്നു; ആര് തിരഞ്ഞു എന്നില്ല. ഇമെയിൽ വിലാസമോ ഫോൺ നമ്പറോ പോലെ തോന്നുന്നവ സൂക്ഷിക്കില്ല." }
+                        li { "ഓരോ തരം താളും ഓരോ ദിവസവും എത്ര തവണ തുറന്നു, വായനക്കാർ ഏത് സൈറ്റിൽ നിന്ന് വന്നു (പേര് മാത്രം), ഓരോ പദ്ധതിത്താളും എത്ര തവണ വായിച്ചു എന്നിവ മാത്രം എണ്ണുന്നു. ഒരു തിരച്ചിലിൽ ഒന്നും കിട്ടിയില്ലെങ്കിൽ ആ വാക്കുകളും എണ്ണവും സൂക്ഷിക്കുന്നു; ആര് തിരഞ്ഞു എന്നില്ല. ഇമെയിൽ വിലാസമോ ഫോൺ നമ്പറോ പോലെ തോന്നുന്നവ സൂക്ഷിക്കില്ല." }
                         li { "ഐ.പി വിലാസങ്ങൾ ഞങ്ങൾ സൂക്ഷിക്കുന്നില്ല. സൈറ്റ് പ്രവർത്തിക്കുന്നത് ക്ലൗഡ്ഫ്ലെയറിലാണ്; സേവനം നൽകുന്നതിനായി അവർ സാങ്കേതിക വിവരങ്ങൾ കൈകാര്യം ചെയ്യുന്നു." }
                         li { "ഇന്റർനെറ്റ് ഇല്ലാതെ വായിക്കാനായി നിങ്ങൾ തുറന്ന താളുകൾ നിങ്ങളുടെ ഉപകരണത്തിൽ തന്നെ സൂക്ഷിക്കുന്നു; അത് ഞങ്ങളിലേക്ക് എത്തുന്നില്ല." }
                     },
                     Lang::En => ul {
                         li { "No accounts, no cookies, no advertising trackers." }
-                        li { "We count only how often each kind of page is opened each day. When a search finds nothing, we keep the words and a count, not who searched; text that looks like an email address or phone number is not kept." }
+                        li { "We count only how often each kind of page is opened each day, which site readers came from (its name only), and how often each project page is read. When a search finds nothing, we keep the words and a count, not who searched; text that looks like an email address or phone number is not kept." }
                         li { "We do not store IP addresses. The site runs on Cloudflare, which handles technical data in order to serve it." }
                         li { "Pages you open are saved on your own device so they can be read offline; that copy never reaches us." }
                     },

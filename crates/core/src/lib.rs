@@ -17,5 +17,6 @@ pub mod pwd_dlp;
 pub mod search;
 pub mod stage;
 pub mod title;
+pub mod visits;
 
 pub use date::Date;

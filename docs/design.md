@@ -297,3 +297,13 @@ Lighthouse (mobile, all page kinds): accessibility 100, best practices 100 (96 o
 ## Build 8: custom domain
 
 `keralakanakku.com` (kanakku.in, .com, .org and .app were taken) is attached as a Workers custom domain, with `www.` too. `CANONICAL_HOST` makes page requests on `www.` and on the workers.dev address answer 301 to the same path on the domain; POSTs and local hosts are left alone, so the admin endpoint and `wrangler dev` are unaffected. The Cache API works on the custom domain (`cf-cache-status: HIT` on the second request), which it did not on workers.dev.
+
+## Build 9: where readers come from
+
+| Item | Where | Notes |
+|---|---|---|
+| Sources | `visits::referrer_source`, `visit_counts` (kind `source`) | Host only; known sites grouped (Google search, Google Groups, WhatsApp, X, Facebook, Reddit, Telegram…); our own hosts and non-web referrers ignored |
+| Tags | `visits::campaign_tag`, `strip_campaign` in `lib.rs` | `?ref=` or `utm_source`; counted, then a 302 to the clean URL so tags are not shared onward and the cache sees one address. API paths are left alone |
+| Pages | `visits::page_key` (kind `page`) | Single-record pages only (`/p/`, `/f/`, `/d/`, `/c/`, `/a/`) |
+| Weekly digest | `runs::digest`, `POST /admin/digest` | Monday 02:30 IST run; posts to `ALERT_WEBHOOK`; page views vs the week before, sources, tags, top pages, missed searches |
+| Public | `/status` | Top sources and tags, 7 and 30 days; privacy wording updated on `/status` and `/about` |
