@@ -52,6 +52,9 @@ pub async fn record<T: Serialize>(env: &Env, source_id: u32, trigger: &str, star
     }
 }
 
+/// The longest alert sent, leaving room under Discord's 2,000-character limit.
+const ALERT_MAX_CHARS: usize = 1900;
+
 /// Posts a message to the webhook in the `ALERT_WEBHOOK` secret, when one is set.
 /// The body carries the text under the keys Slack, Discord and ntfy-style relays read.
 pub async fn alert(env: &Env, message: &str) {
@@ -59,6 +62,12 @@ pub async fn alert(env: &Env, message: &str) {
     if !url.starts_with("https://") {
         return;
     }
+    // Discord refuses messages over 2,000 characters, which would lose the alert entirely.
+    let message: String = if message.chars().count() > ALERT_MAX_CHARS {
+        message.chars().take(ALERT_MAX_CHARS - 1).chain(std::iter::once('…')).collect()
+    } else {
+        message.to_string()
+    };
     let send = async {
         let headers = Headers::new();
         headers.set("Content-Type", "application/json")?;
