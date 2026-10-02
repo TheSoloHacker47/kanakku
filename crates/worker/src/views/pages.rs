@@ -151,6 +151,8 @@ pub fn methodology(lang: Lang, origin: &str, last_checked: Option<&str>) -> Stri
                     },
                 }
 
+                p { a href=(format!("{}/about#accuracy", lang.prefix())) { (lang.pick("കൃത്യതയും ഉപയോഗവും", "Accuracy and use")) } }
+
                 h2 { (lang.pick("തിരുത്തലുകൾ", "Corrections")) }
                 p { (lang.pick(
                     "ഞങ്ങൾ കാണിക്കുന്നത് ഉറവിടത്തിൽ നിന്ന് വ്യത്യസ്തമാണെങ്കിൽ അറിയിക്കുക. ഉറവിടവുമായി ഒത്തുനോക്കി ഞങ്ങൾ തിരുത്തും.",
@@ -246,8 +248,8 @@ pub fn data(lang: Lang, origin: &str, last_checked: Option<&str>) -> String {
                     ))
                     a href="https://creativecommons.org/licenses/by/4.0/" rel="license noopener" { "CC BY 4.0" }
                     (lang.pick(
-                        " ലൈസൻസിലാണ്. ആർക്കും ഉപയോഗിക്കാം, പങ്കുവയ്ക്കാം, മാറ്റം വരുത്താം; ഉറവിടവും കണക്കും പരാമർശിക്കണം എന്നു മാത്രം. ഉദാഹരണം: “ഉറവിടം: കിഫ്ബി; സമാഹരണം: കണക്ക്”.",
-                        ". Anyone may use, share and adapt it, as long as they credit the source and Kanakku, for example “Source: KIIFB, compiled by Kanakku”.",
+                        " ലൈസൻസിലാണ്. ആർക്കും ഉപയോഗിക്കാം, പങ്കുവയ്ക്കാം, മാറ്റം വരുത്താം; ഉറവിടവും കണക്കും പരാമർശിക്കണം എന്നു മാത്രം. ഉദാഹരണം: “ഉറവിടം: കിഫ്ബി; സമാഹരണം: കണക്ക്”. ഈ ലൈസൻസ് ഉറവിടങ്ങളിലെ വിവരങ്ങൾക്കുള്ള അവകാശം നൽകുന്നില്ല; അവ വീണ്ടും ഉപയോഗിക്കുംമുമ്പ് ഓരോ ഉറവിടത്തിന്റെയും നിബന്ധനകൾ പരിശോധിക്കുക.",
+                        ". Anyone may use, share and adapt it, as long as they credit the source and Kanakku, for example “Source: KIIFB, compiled by Kanakku”. The licence grants no rights in the source material itself; check each source's own terms before reusing it.",
                     ))
                 }
                 p { (lang.pick(
@@ -474,14 +476,14 @@ pub fn about(lang: Lang, origin: &str, contact: &str) -> String {
                 @match lang {
                     Lang::Ml => ul {
                         li { "താളിന്റെ വിലാസവും എന്താണ് തെറ്റെന്നും, സാധിക്കുമെങ്കിൽ ശരിയായ വിവരത്തിന്റെ ഉറവിടവും ചേർക്കുക." }
-                        li { "ഏഴു ദിവസത്തിനകം മറുപടി നൽകും." }
-                        li { "തെറ്റ് ഞങ്ങളുടെ വായനയിലോ കണക്കുകൂട്ടലിലോ ആണെങ്കിൽ, ഉറവിടവുമായി ഒത്തുനോക്കി ഏഴു ദിവസത്തിനകം തിരുത്തും. ഒരു സൂചന തെറ്റായി വന്നതാണെങ്കിൽ അത് നീക്കും, അക്കാര്യം പദ്ധതിയുടെ താളിൽ രേഖപ്പെടുത്തും." }
+                        li { "ഏഴു ദിവസത്തിനകം മറുപടി നൽകാൻ ശ്രമിക്കും. ഒരു സംഖ്യയെക്കുറിച്ചോ സൂചനയെക്കുറിച്ചോ പരാതി ലഭിച്ചാൽ, ഉറവിടവുമായി ഒത്തുനോക്കുന്നതുവരെ അത് “പരിശോധനയിൽ” എന്ന് അടയാളപ്പെടുത്തും." }
+                        li { "തെറ്റ് ഞങ്ങളുടെ വായനയിലോ കണക്കുകൂട്ടലിലോ ആണെങ്കിൽ, ഉറവിടവുമായി ഒത്തുനോക്കി എത്രയും വേഗം, സാധാരണയായി ഏഴു ദിവസത്തിനകം, തിരുത്തും. ഒരു സൂചന തെറ്റായി വന്നതാണെങ്കിൽ അത് നീക്കും, അക്കാര്യം പദ്ധതിയുടെ താളിൽ രേഖപ്പെടുത്തും." }
                         li { "തെറ്റ് ഉറവിടത്തിൽ തന്നെയാണെങ്കിൽ (ഉദാഹരണത്തിന് കിഫ്ബിയുടെ ഡാഷ്ബോർഡിൽ), ഞങ്ങൾക്ക് അത് മാറ്റാനാവില്ല; അക്കാര്യം നിങ്ങളെ അറിയിക്കും, പ്രസിദ്ധീകരിച്ച സ്ഥാപനത്തെ സമീപിക്കാം." }
                     },
                     Lang::En => ul {
                         li { "Include the page's address, what is wrong and, if you can, where the correct figure is published." }
-                        li { "We reply within seven days." }
-                        li { "If the mistake is in how we read or calculated something, we check it against the source and correct it within seven days. A flag raised in error is removed, and the removal is recorded on the project's page." }
+                        li { "We aim to reply within seven days. If a figure or flag is disputed, we mark it as under review while we check it against the source." }
+                        li { "If the mistake is in how we read or calculated something, we check it against the source and correct it promptly, normally within seven days. A flag raised in error is removed, and the removal is recorded on the project's page." }
                         li { "If the figure is wrong at the source itself (on KIIFB's dashboard, say), we cannot change it. We will tell you so, and you can raise it with the body that published it." }
                     },
                 }
@@ -492,8 +494,8 @@ pub fn about(lang: Lang, origin: &str, contact: &str) -> String {
                     "This site is made of records government bodies publish about public spending: projects, amounts, dates, contractors' names and the names of elected representatives. We do not remove them because they are inconvenient. When the source corrects them, they change here at the next read.",
                 )) }
                 p { (lang.pick(
-                    "സ്വകാര്യ വ്യക്തികളുടെ ഫോൺ നമ്പറുകളും വീട്ടുവിലാസങ്ങളും ഞങ്ങൾ സൂക്ഷിക്കുകയോ കാണിക്കുകയോ ചെയ്യുന്നില്ല; ഉറവിടത്തിലുണ്ടെങ്കിലും. അത്തരം വിവരം ഇവിടെ എവിടെയെങ്കിലും കണ്ടാൽ മുകളിലെ വിലാസത്തിൽ അറിയിക്കുക; ഉടൻ നീക്കും. നിയമപരമായ അറിയിപ്പുകളും അതേ വിലാസത്തിലേക്ക് അയക്കുക.",
-                    "We do not keep or show private individuals' phone numbers or home addresses, even where a source prints them. If you find such information anywhere here, write to the address above and we will remove it promptly. Legal notices go to the same address.",
+                    "സ്വകാര്യ വ്യക്തികളുടെ ഫോൺ നമ്പറുകളും വീട്ടുവിലാസങ്ങളും ഞങ്ങൾ സൂക്ഷിക്കുകയോ കാണിക്കുകയോ ചെയ്യുന്നില്ല; ഉറവിടത്തിലുണ്ടെങ്കിലും. അത്തരം വിവരം ഇവിടെ എവിടെയെങ്കിലും കണ്ടാൽ മുകളിലെ വിലാസത്തിൽ അറിയിക്കുക; ഉടൻ നീക്കും. കോടതിയുടെയോ അധികാരപ്പെട്ട സ്ഥാപനത്തിന്റെയോ ഉത്തരവുകൾ ഞങ്ങൾ പാലിക്കും. നിയമപരമായ അറിയിപ്പുകളും അതേ വിലാസത്തിലേക്ക് അയക്കുക.",
+                    "We do not keep or show private individuals' phone numbers or home addresses, even where a source prints them. If you find such information anywhere here, write to the address above and we will remove it promptly. We comply with orders of a court or competent authority. Legal notices go to the same address.",
                 )) }
 
                 h2 #privacy { (lang.pick("സ്വകാര്യത", "Privacy")) }
@@ -502,15 +504,23 @@ pub fn about(lang: Lang, origin: &str, contact: &str) -> String {
                         li { "അക്കൗണ്ടുകളില്ല, കുക്കികളില്ല, പരസ്യ ട്രാക്കറുകളില്ല." }
                         li { "ഓരോ തരം താളും ഓരോ ദിവസവും എത്ര തവണ തുറന്നു, വായനക്കാർ ഏത് സൈറ്റിൽ നിന്ന് വന്നു (പേര് മാത്രം), ഓരോ പദ്ധതിത്താളും എത്ര തവണ വായിച്ചു എന്നിവ മാത്രം എണ്ണുന്നു. ഒരു തിരച്ചിലിൽ ഒന്നും കിട്ടിയില്ലെങ്കിൽ ആ വാക്കുകളും എണ്ണവും സൂക്ഷിക്കുന്നു; ആര് തിരഞ്ഞു എന്നില്ല. ഇമെയിൽ വിലാസമോ ഫോൺ നമ്പറോ പോലെ തോന്നുന്നവ സൂക്ഷിക്കില്ല." }
                         li { "ഐ.പി വിലാസങ്ങൾ ഞങ്ങൾ സൂക്ഷിക്കുന്നില്ല. സൈറ്റ് പ്രവർത്തിക്കുന്നത് ക്ലൗഡ്ഫ്ലെയറിലാണ്; സേവനം നൽകുന്നതിനായി അവർ സാങ്കേതിക വിവരങ്ങൾ കൈകാര്യം ചെയ്യുന്നു." }
+                        li { "ഞങ്ങൾക്ക് ഇമെയിൽ അയച്ചാൽ, നിങ്ങളുടെ വിലാസം മറുപടി നൽകാൻ മാത്രം ഉപയോഗിക്കും; ആരുമായും പങ്കുവയ്ക്കില്ല." }
                         li { "ഇന്റർനെറ്റ് ഇല്ലാതെ വായിക്കാനായി നിങ്ങൾ തുറന്ന താളുകൾ നിങ്ങളുടെ ഉപകരണത്തിൽ തന്നെ സൂക്ഷിക്കുന്നു; അത് ഞങ്ങളിലേക്ക് എത്തുന്നില്ല." }
                     },
                     Lang::En => ul {
                         li { "No accounts, no cookies, no advertising trackers." }
                         li { "We count only how often each kind of page is opened each day, which site readers came from (its name only), and how often each project page is read. When a search finds nothing, we keep the words and a count, not who searched; text that looks like an email address or phone number is not kept." }
                         li { "We do not store IP addresses. The site runs on Cloudflare, which handles technical data in order to serve it." }
+                        li { "If you email us, we use your address only to reply, and we do not share it." }
                         li { "Pages you open are saved on your own device so they can be read offline; that copy never reaches us." }
                     },
                 }
+
+                h2 #accuracy { (lang.pick("കൃത്യതയും ഉപയോഗവും", "Accuracy and use")) }
+                p { (lang.pick(
+                    "സംഖ്യകൾ സർക്കാർ പ്രസിദ്ധീകരിക്കുന്നതുപോലെയാണ് കാണിക്കുന്നത്; അവയിൽ ഉറവിടത്തിലെയോ ഞങ്ങളുടെയോ തെറ്റുകൾ ഉണ്ടാകാം. ഇവ വിവരത്തിനു വേണ്ടി മാത്രമാണ്. ഏതെങ്കിലും തീരുമാനത്തിന് ആശ്രയിക്കുംമുമ്പ് പ്രസിദ്ധീകരിച്ച വകുപ്പുമായി ഒത്തുനോക്കുക. സംഖ്യകളുടെ ഉപയോഗത്തിന് കണക്ക് ഉത്തരവാദിത്തം ഏൽക്കുന്നില്ല.",
+                    "Figures are shown as the government publishes them and can contain the source's errors or ours. They are for information. Confirm them with the publishing department before relying on them for any decision. Kanakku accepts no liability for any use of the figures.",
+                )) }
 
                 h2 #licences { (lang.pick("ലൈസൻസുകൾ", "Licences")) }
                 p {
@@ -523,6 +533,96 @@ pub fn about(lang: Lang, origin: &str, contact: &str) -> String {
         }
     };
     layout(&page(lang, title, lead, "/about", origin, Nav::None, None), body)
+}
+
+/// A two-minute brief for journalists and civic groups: what the site is and is not, how flags
+/// and corrections work, and the payment-listing finding explained carefully.
+pub fn press(lang: Lang, origin: &str, contact: &str, n: &crate::db::PressNumbers) -> String {
+    use kanakku_core::fmt::inr_short;
+    let title = lang.pick("മാധ്യമങ്ങൾക്ക്", "For the press");
+    let lead = lang.pick(
+        "കണക്ക് എന്താണ്, എന്തല്ല, സംഖ്യകൾ എങ്ങനെ ഉപയോഗിക്കാം: രണ്ടു മിനിറ്റിൽ.",
+        "What Kanakku is, what it is not, and how to use its figures: in two minutes.",
+    );
+    let money = |v: Option<i64>| v.map(|v| inr_short(v, lang)).unwrap_or_else(|| "—".into());
+    let p = lang.prefix();
+    let body = html! {
+        (head(lang, title, lead))
+        div.wrap {
+            div.prose {
+                h2 { (lang.pick("കണക്ക് എന്താണ്", "What Kanakku is")) }
+                @match lang {
+                    Lang::Ml => ul {
+                        li { "കേരളത്തിലെ പൊതുപദ്ധതികളുടെ കണക്കുകൾ മലയാളത്തിലും ഇംഗ്ലീഷിലും കാണിക്കുന്ന ഒരു സ്വതന്ത്ര, സൗജന്യ വെബ്സൈറ്റ്. പരസ്യങ്ങളില്ല; ഒരു കക്ഷിയുമായും ബന്ധമില്ല." }
+                        li { "കിഫ്ബിയുടെ ഡാഷ്ബോർഡിലെ " (n.projects) " പദ്ധതികൾ, കിഫ്ബിയുടെ പ്രോജക്ട് സ്റ്റാറ്റസ് താളിലെ " (n.funded) " പദ്ധതികളുടെ അനുവദിച്ചതും നൽകിയതുമായ തുകകൾ, കരാറുകാരന് ഇപ്പോഴും അറ്റകുറ്റപ്പണി ബാധ്യതയുള്ള " (n.liability) " പി.ഡബ്ല്യു.ഡി പ്രവൃത്തികൾ." }
+                        li { "ഓരോ സംഖ്യയും അത് എടുത്ത സർക്കാർ താളിന്റെ സൂക്ഷിച്ച പകർപ്പിലേക്ക് ചൂണ്ടുന്നു. ദിവസവും പുതുക്കുന്നു." }
+                    },
+                    Lang::En => ul {
+                        li { "An independent, free website showing Kerala's public project figures in Malayalam and English. No ads, no party affiliation." }
+                        li { (n.projects) " projects from KIIFB's dashboard; approved and paid amounts for " (n.funded) " projects from KIIFB's project status page; " (n.liability) " PWD works whose contractor is still liable for repairs." }
+                        li { "Every figure links to a stored copy of the government page it came from. Updated daily." }
+                    },
+                }
+
+                h2 { (lang.pick("കണക്ക് എന്തല്ല", "What Kanakku is not")) }
+                @match lang {
+                    Lang::Ml => ul {
+                        li { "ആരോപണങ്ങളില്ല. ഒരു “സൂചന” എന്നാൽ പ്രസിദ്ധീകരിച്ച സംഖ്യകൾ ഒരു നിശ്ചിത പരിധി കടന്നു എന്നു മാത്രം; അത് തെറ്റ് നടന്നു എന്നതിന്റെ തെളിവല്ല. ഇപ്പോൾ " (n.flagged) " പദ്ധതികൾക്ക് സൂചനയുണ്ട്." }
+                        li { "കിഫ്ബിയുമായോ സർക്കാരുമായോ ബന്ധമില്ല. ഒരേ നിയമങ്ങൾ എല്ലാ കക്ഷികൾക്കും." }
+                        li { "സ്വന്തം അന്വേഷണമില്ല: സർക്കാർ പ്രസിദ്ധീകരിച്ചത് മാത്രം, വായിക്കാവുന്ന രൂപത്തിൽ." }
+                    },
+                    Lang::En => ul {
+                        li { "Not an accusation. A “flag” only marks that published figures crossed a stated threshold; it is not evidence of wrongdoing. " (n.flagged) " projects carry a flag today." }
+                        li { "Not affiliated with KIIFB or the government. The same rules apply to every party." }
+                        li { "Not original investigation: only what the government publishes, made readable." }
+                    },
+                }
+                p { a href=(format!("{p}/methodology#rules")) { (lang.pick("സൂചനാ നിയമങ്ങൾ", "The flag rules")) } }
+
+                h2 #payments { (lang.pick("ഒരു കണ്ടെത്തൽ: കിഫ്ബിയുടെ “നൽകിയ തുക”", "One finding: KIIFB's “payment released”")) }
+                @match lang {
+                    Lang::Ml => {
+                        p { "പല ജില്ലകളിലായി രേഖപ്പെടുത്തിയ പദ്ധതികൾക്ക്, കിഫ്ബിയുടെ പട്ടികയിലെ “നൽകിയ തുക” ഓരോ ജില്ലയ്ക്കും ഒരിക്കൽ വീതം കൂട്ടുന്നു. പട്ടികയിലെ ആകെ " b { (money(n.listed)) } " ആണ്; ഓരോ പദ്ധതിയുടെയും പ്രവൃത്തികളിൽ നിന്ന് കൂട്ടുമ്പോൾ നൽകിയത് " b { (money(n.paid)) } " (അനുവദിച്ചത് " (money(n.approved)) "). " (n.overstated) " പദ്ധതികളെ ഇത് ബാധിക്കുന്നു." }
+                        p { b { "ഇത് പണം കാണാതായതിന്റെ തെളിവല്ല." } " ഇതൊരു എണ്ണൽ രീതിയാണ്: ഒരേ പണം പല ജില്ലകളുടെ വരിയിൽ ആവർത്തിക്കുന്നു. 2026 ഒക്ടോബർ 2-ന് ഞങ്ങൾ കിഫ്ബിയെ ഇക്കാര്യം അറിയിച്ചു. കിഫ്ബിയുടെ മൊത്തം കണക്കുകൾ ഉദ്ധരിക്കുമ്പോൾ ഇത് ശ്രദ്ധിക്കുക." }
+                    },
+                    Lang::En => {
+                        p { "For projects filed under several districts, the “payment released” on KIIFB's project status list is counted once per district. The list adds up to " b { (money(n.listed)) } "; summed from each project's own works, what has been paid is " b { (money(n.paid)) } " (of " (money(n.approved)) " approved). It affects " (n.overstated) " projects." }
+                        p { b { "This is not evidence of missing money." } " It is a counting quirk: the same payments repeat on each district's row. We told KIIFB on 2 October 2026. Please keep it in mind when quoting KIIFB's totals." }
+                    },
+                }
+                p { a href=(format!("{p}/methodology#join")) { (lang.pick("എങ്ങനെ പരിശോധിച്ചു", "How we checked")) } " · " a href=(format!("{p}/funding")) { (lang.pick("പദ്ധതി തിരിച്ച്", "Project by project")) } }
+
+                h2 { (lang.pick("സംഖ്യകൾ ഉപയോഗിക്കുമ്പോൾ", "Using the figures")) }
+                @match lang {
+                    Lang::Ml => ul {
+                        li { "ഉറവിടമായി ബന്ധപ്പെട്ട വകുപ്പിനെയും (കിഫ്ബി, പി.ഡബ്ല്യു.ഡി) സമാഹരണം കണക്ക് എന്നും പരാമർശിക്കുക. ഓരോ താളിലുമുള്ള സൂക്ഷിച്ച പകർപ്പ് തെളിവായി ഉപയോഗിക്കാം." }
+                        li { "പ്രധാനപ്പെട്ട സംഖ്യകൾ പ്രസിദ്ധീകരിക്കുംമുമ്പ് ബന്ധപ്പെട്ട വകുപ്പുമായി ഒത്തുനോക്കുക." }
+                        li { "എല്ലാ ഡാറ്റയും CC BY 4.0 ലൈസൻസിൽ ഡൗൺലോഡ് ചെയ്യാം." }
+                    },
+                    Lang::En => ul {
+                        li { "Credit the department as the source (KIIFB, PWD) and Kanakku as the compiler. The stored copy linked on every page can serve as your record." }
+                        li { "Confirm any figure you lead with against the publishing department before publication." }
+                        li { "All the data can be downloaded under CC BY 4.0." }
+                    },
+                }
+                p { a href=(format!("{p}/data")) { (lang.pick("ഡാറ്റ ഡൗൺലോഡ്", "Data downloads")) } }
+
+                h2 { (lang.pick("തിരുത്തലുകളും ബന്ധപ്പെടലും", "Corrections and contact")) }
+                p {
+                    (lang.pick(
+                        "തെറ്റ് കണ്ടാൽ അറിയിക്കുക; ഏഴു ദിവസത്തിനകം മറുപടി നൽകാൻ ശ്രമിക്കും, പരിശോധിക്കുന്നതുവരെ തർക്കമുള്ള സൂചനകൾ “പരിശോധനയിൽ” എന്ന് അടയാളപ്പെടുത്തും. മാധ്യമ അന്വേഷണങ്ങൾക്കും ഇതേ വിലാസം: ",
+                        "Tell us about a mistake: we aim to reply within seven days, and mark a disputed flag “under review” while we check it. Press enquiries go to the same address: ",
+                    ))
+                    (contact_link(lang, contact))
+                }
+                p {
+                    (lang.pick("കേരളത്തിൽ നിന്നുള്ള ഒരു സ്വതന്ത്ര പൗര സംരംഭം; സ്വന്തം ചെലവിൽ. കൂടുതൽ: ", "An independent civic project from Kerala, self-funded. More: "))
+                    a href=(format!("{p}/about")) { (lang.pick("കണക്കിനെക്കുറിച്ച്", "About Kanakku")) }
+                }
+            }
+        }
+    };
+    layout(&page(lang, title, lead, "/press", origin, Nav::None, None), body)
 }
 
 fn view_kind_label(lang: Lang, kind: &str) -> String {
@@ -541,6 +641,7 @@ fn view_kind_label(lang: Lang, kind: &str) -> String {
         "data" => lang.pick("ഡാറ്റ", "Data"),
         "status" => lang.pick("പ്രവർത്തന നില", "Status"),
         "about" => lang.pick("കണക്കിനെക്കുറിച്ച്", "About"),
+        "press" => lang.pick("മാധ്യമങ്ങൾക്ക്", "For the press"),
         other => return other.to_string(),
     }
     .to_string()

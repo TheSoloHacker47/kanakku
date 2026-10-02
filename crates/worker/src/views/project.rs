@@ -13,7 +13,7 @@ use kanakku_core::{kiifb, Date};
 use maud::{html, Markup};
 use worker::url::form_urlencoded::byte_serialize;
 
-use super::{big_amount, dash, report_link, department_icon, dot_map, en, funding, icon, layout, meter, on_dot_map, Nav, Page};
+use super::{big_amount, dash, review_note, report_link, department_icon, dot_map, en, funding, icon, layout, meter, on_dot_map, Nav, Page};
 use crate::db::ProjectPage;
 use crate::http::encode_segment;
 use crate::icons;
@@ -123,6 +123,7 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
                                     @if let Some(work) = &flag.work_ref { " · " (en(work)) }
                                 }
                                 p { (flag_explain(lang, kind, &value)) }
+                                @if flag.status == "open" { (review_note(lang, flag.review_since.as_deref())) }
                                 p.small {
                                     (lang.pick("നിയമം", "Rule")) ": " (flag_rule(lang, kind)) " "
                                     a href=(format!("{p}/methodology#rules")) { (t.rule_version) " " (flag.rule_version) }

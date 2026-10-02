@@ -318,3 +318,6 @@ details > summary::-webkit-details-marker { display: none; }
 .leaflet-container { font: inherit; }
 .pop a { font-weight: 600; }
 .pop div { font-size: 0.8125rem; color: var(--muted); }
+
+/* A questioned flag, while it is checked. */
+.review { background: var(--paper); border-left: 3px solid var(--ink); padding: 6px 10px; margin: 8px 0; font-size: 0.9375rem; }

@@ -96,6 +96,7 @@ curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" --data-binary @page.html h
 - To be told when a run fails, set a webhook (Slack, Discord or similar): `npx wrangler secret put ALERT_WEBHOOK`.
 - Visit counts are per kind of page, language and day. No cookies, addresses or identifiers.
 - Where readers come from: the referring site's name (never the full address), `?ref=` tags on links we hand out (counted, then redirected away so the tag is not copied onward), and per-page counts for individual projects. Daily totals in `visit_counts`; top sources and tags on `/status`. Hand out links like `https://keralakanakku.com/?ref=datameet`.
+- A questioned flag can be marked "under review" while it is checked: `curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" "https://keralakanakku.com/admin/review?source=dashboard&record=PWD015-69-03&type=overdue"` (`source=status` with a status-page ref for payment flags; add `&off=1` to clear). The mark shows on the page and as `under_review_since` in the API.
 - A weekly summary goes to `ALERT_WEBHOOK` with the Monday 02:30 IST run. To send one now: `curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" https://keralakanakku.com/admin/digest`.
 - Searches that find nothing are kept as words and a daily count (`search_misses`), never with who searched. Text that looks like an email address or phone number is not kept. To read them:
   `npx wrangler d1 execute kanakku --remote --command "SELECT q, surface, SUM(n) AS n FROM search_misses GROUP BY q, surface ORDER BY n DESC LIMIT 50"`
@@ -112,7 +113,8 @@ curl -X POST -H "Authorization: Bearer $INGEST_TOKEN" --data-binary @page.html h
 | `/agencies`, `/a/{key}` | Implementing agencies |
 | `/og/p/{code}.png`, `/og/f/{ref}.png` | Share images, drawn on request |
 | `/status`, `/methodology`, `/data`, `/map` | Health, method, downloads, map |
-| `/about` | Who runs it, corrections, takedown requests, privacy, licences. The contact shown is `CONTACT` in `wrangler.toml` |
+| `/about` | Who runs it, corrections, takedown requests, privacy, accuracy and use, licences. The contact shown is `CONTACT` in `wrangler.toml` |
+| `/press` | Two-minute brief for journalists, with live figures and the payment-listing finding explained |
 
 ## Open data API
 

@@ -172,6 +172,10 @@ pub fn contractor(lang: Lang, origin: &str, key: &str, data: &ContractorPage, to
                 }
             }
             p.note.sec { (same_name_note(lang)) }
+            p.note { (lang.pick(
+                "സൂചനകൾ ഒരു പ്രവൃത്തിയുടെ പ്രസിദ്ധീകരിച്ച തീയതികളെയും തുകകളെയും കുറിച്ചാണ്, കരാറുകാരന്റെ പ്രവർത്തനത്തെക്കുറിച്ചല്ല. ഭൂമിയേറ്റെടുക്കൽ, അനുമതികൾ, പണം ലഭിക്കാനുള്ള താമസം എന്നിങ്ങനെ പല കാരണങ്ങളാൽ പ്രവൃത്തികൾ വൈകാം.",
+                "Flags describe the published dates and figures of a work, not the conduct of the contractor. Works are delayed for many reasons, including land acquisition, approvals and payments.",
+            )) }
 
             @if !data.works.is_empty() {
                 section.sec {

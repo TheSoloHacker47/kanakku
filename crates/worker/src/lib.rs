@@ -235,6 +235,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
         }
         "/methodology" => http::html(views::pages::methodology(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
         "/about" => http::html(views::pages::about(lang, origin, &contact), 200, Policy::Page),
+        "/press" => http::html(views::pages::press(lang, origin, &contact, &db::press_numbers(&db).await?), 200, Policy::Page),
         "/data" => http::html(views::pages::data(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
         "/map" => http::html(views::pages::map(lang, origin, checked().await?.as_deref()), 200, Policy::Map),
         "/funding" => {
@@ -526,11 +527,24 @@ fn is_code(s: &str) -> bool {
 }
 
 async fn admin(mut req: Request, env: &Env) -> Result<Response> {
-    if req.path() != "/admin/ingest" && req.path() != "/admin/digest" {
+    if !matches!(req.path().as_str(), "/admin/ingest" | "/admin/digest" | "/admin/review") {
         return Response::error("Not found", 404);
     }
     if !authorised(&req, env) {
         return Response::error("Unauthorised", 401);
+    }
+    // Marks a questioned flag as under review, or clears the mark:
+    // ?source=dashboard|status&record=<code or ref>[&type=overdue][&work=#1][&off=1]
+    if req.path() == "/admin/review" {
+        let url = req.url()?;
+        let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, v)| v.into_owned()).unwrap_or_default();
+        let source = param("source");
+        if !matches!(source.as_str(), "dashboard" | "status") || param("record").is_empty() {
+            return Response::error("source must be dashboard or status, and record is required", 400);
+        }
+        let today = kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64).to_iso();
+        let changed = db::set_review(&env.d1("DB")?, &source, &param("record"), &param("type"), &param("work"), param("off").is_empty(), &today).await?;
+        return Response::from_json(&serde_json::json!({ "flags_changed": changed }));
     }
     // Sends the weekly summary now, to check the webhook and the numbers.
     if req.path() == "/admin/digest" {

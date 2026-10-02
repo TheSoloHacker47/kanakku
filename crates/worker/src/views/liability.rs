@@ -184,8 +184,8 @@ pub fn render(lang: Lang, origin: &str, filter: &LiabilityFilter, data: &Liabili
                     ))
                     " "
                     @match lang {
-                        Lang::Ml => { "കരാർ തുക വകുപ്പിന്റെ താളിന്റെ കോഡിലുണ്ടെങ്കിലും താളിൽ കാണിക്കുന്നില്ല; ഇപ്പോൾ കാലാവധിയിലുള്ള " (totals.active) " പ്രവൃത്തികളിൽ " (totals.with_amount) " എണ്ണത്തിന് മാത്രമേ വകുപ്പ് അത് രേഖപ്പെടുത്തിയിട്ടുള്ളൂ." },
-                        Lang::En => { "The agreed amount sits in the code of PWD's page without being displayed there, and PWD has filled it in for only " (totals.with_amount) " of the " (totals.active) " works now under liability." },
+                        Lang::Ml => { "കരാർ തുക വകുപ്പിന്റെ താളിന്റെ കോഡിലുണ്ടെങ്കിലും താളിൽ കാണിക്കുന്നില്ല; അതിനാൽ അത് താൽക്കാലികമോ പഴയതോ ആകാം. ഇപ്പോൾ കാലാവധിയിലുള്ള " (totals.active) " പ്രവൃത്തികളിൽ " (totals.with_amount) " എണ്ണത്തിന് മാത്രമേ വകുപ്പ് അത് രേഖപ്പെടുത്തിയിട്ടുള്ളൂ." },
+                        Lang::En => { "The agreed amount sits in the code of PWD's page without being displayed there, so it may be provisional or out of date; PWD has filled it in for only " (totals.with_amount) " of the " (totals.active) " works now under liability." },
                     }
                 }
                 div.actions {
@@ -253,6 +253,7 @@ pub fn work_row(lang: Lang, row: &LiabilityRow, today: Date) -> Markup {
                 @if let Some(amount) = row.agreed_amount {
                     span.m {
                         (lang.pick("കരാർ തുക", "Agreed amount")) " " b { (inr_short(amount, lang)) } " · " (inr(amount))
+                        " " small { (lang.pick("(പി.ഡബ്ല്യു.ഡി താളിൽ കാണിക്കാത്തത്)", "(not displayed by PWD)")) }
                     }
                 }
                 @if let Some(left) = left {

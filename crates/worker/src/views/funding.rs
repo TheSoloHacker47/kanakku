@@ -10,7 +10,7 @@ use kanakku_core::title::display_title;
 use kanakku_core::Date;
 use maud::{html, Markup};
 
-use super::{big_amount, dash, report_link, department_icon, en, icon, layout, meter, pager, pair, Nav, Page};
+use super::{big_amount, dash, review_note, report_link, department_icon, en, icon, layout, meter, pager, pair, Nav, Page};
 use crate::db::{FundingLink, FundingListing, FundingPage, FundingRow, FundingSort, FundingTotals, FUNDING_PAGE_SIZE};
 use crate::http::encode_segment;
 use crate::icons;
@@ -382,6 +382,7 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
                                     @if let Some(work) = &flag.work_ref { " · " (en(&display_title(work))) }
                                 }
                                 p { (flag_explain(lang, kind, &value)) }
+                                @if flag.status == "open" { (review_note(lang, flag.review_since.as_deref())) }
                                 p.small {
                                     (lang.pick("നിയമം", "Rule")) ": " (flag_rule(lang, kind)) " "
                                     a href=(format!("{p}/methodology#rules")) { (t.rule_version) " " (flag.rule_version) }

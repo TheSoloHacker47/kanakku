@@ -102,6 +102,7 @@ pub fn view_kind(path: &str) -> Option<(&'static str, Lang)> {
         "/data" => "data",
         "/status" => "status",
         "/about" => "about",
+        "/press" => "press",
         _ if rest.starts_with("/p/") => "project",
         _ if rest.starts_with("/f/") => "funding_project",
         _ if rest.starts_with("/c/") => "contractor",

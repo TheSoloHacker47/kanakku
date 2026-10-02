@@ -307,3 +307,16 @@ Lighthouse (mobile, all page kinds): accessibility 100, best practices 100 (96 o
 | Pages | `visits::page_key` (kind `page`) | Single-record pages only (`/p/`, `/f/`, `/d/`, `/c/`, `/a/`) |
 | Weekly digest | `runs::digest`, `POST /admin/digest` | Monday 02:30 IST run; posts to `ALERT_WEBHOOK`; page views vs the week before, sources, tags, top pages, missed searches |
 | Public | `/status` | Top sources and tags, 7 and 30 days; privacy wording updated on `/status` and `/about` |
+
+## Build 10: legal fixes and the press page
+
+From the structured legal review (PER-904, kept out of git):
+
+| Item | Where |
+|---|---|
+| Accuracy and use section; corrections reworded to "aim to … mark as under review"; court-order compliance; email-use line | `/about` |
+| "Flags describe works, not the contractor's conduct" | contractor pages |
+| Licence covers Kanakku's additions only; check each source's terms | `/data`, `api::ATTRIBUTION` (PWD's site forbids reposting its pages; facts are not copyrightable) |
+| PWD's undisplayed agreed amount marked as possibly provisional | `/liability` |
+| Flag "under review" state | migration 0012 `review_since`, `POST /admin/review`, `review_note`, API `under_review_since` |
+| Press brief with live figures | `/press`, `db::press_numbers` |

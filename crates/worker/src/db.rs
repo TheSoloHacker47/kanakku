@@ -386,6 +386,9 @@ pub struct FlagRow {
     pub status: String,
     pub created_on: String,
     pub cleared_on: Option<String>,
+    /// Set while someone's challenge to the flag is being checked.
+    #[serde(default)]
+    pub review_since: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -436,7 +439,7 @@ pub async fn project(db: &D1Database, code: &str) -> Result<Option<ProjectPage>>
             query!(
                 db,
                 &format!(
-                    "SELECT type, work_ref, rule_version, value_json, status, created_on, cleared_on
+                    "SELECT type, work_ref, rule_version, value_json, status, created_on, cleared_on, review_since
                      FROM flags WHERE project_id = {ID} ORDER BY status = 'open' DESC, id DESC LIMIT 40"
                 ),
                 code,
@@ -703,7 +706,7 @@ pub async fn funding_project(db: &D1Database, reference: &str) -> Result<Option<
             query!(
                 db,
                 &format!(
-                    "SELECT type, work_ref, rule_version, value_json, status, created_on, cleared_on
+                    "SELECT type, work_ref, rule_version, value_json, status, created_on, cleared_on, review_since
                      FROM funding_flags WHERE funding_project_id = {ID} ORDER BY status = 'open' DESC, id DESC LIMIT 40"
                 ),
                 reference,
@@ -1178,16 +1181,18 @@ pub struct ApiFlagRow {
     pub created_on: String,
     pub cleared_on: Option<String>,
     pub snapshot_id: i64,
+    #[serde(default)]
+    pub review_since: Option<String>,
 }
 
 /// Flags in a status (`open`, `cleared` or `all`), optionally of one type, newest first.
 pub async fn flags(db: &D1Database, status: &str, kind: &str, district: &str, page: u32) -> Result<(Vec<ApiFlagRow>, u32)> {
     let union = format!(
-        "SELECT 'dashboard' AS source, p.code AS record, g.work_ref, g.type, g.rule_version, g.value_json, g.status, g.created_on, g.cleared_on, g.snapshot_id, g.id
+        "SELECT 'dashboard' AS source, p.code AS record, g.work_ref, g.type, g.rule_version, g.value_json, g.status, g.created_on, g.cleared_on, g.snapshot_id, g.review_since, g.id
            FROM flags g JOIN projects p ON p.id = g.project_id
           WHERE (?2 = 'all' OR g.status = ?2) AND (?3 = '' OR g.type = ?3) AND {IN_DISTRICT}
          UNION ALL
-         SELECT 'status', f.ref, g.work_ref, g.type, g.rule_version, g.value_json, g.status, g.created_on, g.cleared_on, g.snapshot_id, g.id
+         SELECT 'status', f.ref, g.work_ref, g.type, g.rule_version, g.value_json, g.status, g.created_on, g.cleared_on, g.snapshot_id, g.review_since, g.id
            FROM funding_flags g JOIN funding_projects f ON f.id = g.funding_project_id
           WHERE (?2 = 'all' OR g.status = ?2) AND (?3 = '' OR g.type = ?3) AND {FUNDED_IN_DISTRICT}"
     );
@@ -1282,4 +1287,55 @@ pub async fn digest(db: &D1Database, from: &str, to: &str, prev_from: &str) -> R
         pages: results[4].results()?,
         misses: results[5].results()?,
     })
+}
+
+/// Marks the open flags of one record as under review (or clears the mark). `source` is
+/// `dashboard` (record = project code) or `status` (record = status-page reference). `work`
+/// narrows to one work; `kind` to one flag type. Returns how many flags changed.
+pub async fn set_review(db: &D1Database, source: &str, record: &str, kind: &str, work: &str, on: bool, today: &str) -> Result<u32> {
+    let (table, owner) = match source {
+        "dashboard" => ("flags", "project_id = (SELECT id FROM projects WHERE code = ?1)"),
+        _ => ("funding_flags", "funding_project_id = (SELECT id FROM funding_projects WHERE ref = ?1)"),
+    };
+    let value = if on { Some(today.to_string()) } else { None };
+    let result = query!(
+        db,
+        &format!("UPDATE {table} SET review_since = ?4 WHERE status = 'open' AND {owner} AND (?2 = '' OR type = ?2) AND (?3 = '' OR work_ref = ?3)"),
+        record,
+        kind,
+        work,
+        value,
+    )?
+    .run()
+    .await?;
+    Ok(result.meta()?.and_then(|m| m.changes).unwrap_or(0) as u32)
+}
+
+/// The headline numbers on the press page, read live.
+#[derive(Debug, Default, Deserialize)]
+pub struct PressNumbers {
+    pub projects: u32,
+    pub flagged: u32,
+    pub funded: u32,
+    pub approved: Option<i64>,
+    pub paid: Option<i64>,
+    pub listed: Option<i64>,
+    pub overstated: u32,
+    pub liability: u32,
+}
+
+pub async fn press_numbers(db: &D1Database) -> Result<PressNumbers> {
+    Ok(db
+        .prepare(
+            "SELECT (SELECT COUNT(*) FROM projects WHERE missing_since IS NULL) AS projects,
+                    (SELECT COUNT(*) FROM projects WHERE missing_since IS NULL AND flag_count > 0) AS flagged,
+                    COUNT(*) AS funded, SUM(approved_amount) AS approved, SUM(released_amount) AS paid,
+                    SUM(released_listed) AS listed,
+                    COALESCE(SUM(released_listed > released_amount * 1.01), 0) AS overstated,
+                    (SELECT COUNT(*) FROM liability_works WHERE missing_since IS NULL) AS liability
+             FROM funding_projects WHERE missing_since IS NULL",
+        )
+        .first::<PressNumbers>(None)
+        .await?
+        .unwrap_or_default())
 }

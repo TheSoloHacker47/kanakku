@@ -11,7 +11,7 @@ use crate::runs::STALE_AFTER_HOURS;
 /// The terms every download carries. The figures are the sources'; what Kanakku adds is CC BY 4.0.
 pub const LICENSE: &str = "CC-BY-4.0";
 pub const LICENSE_URL: &str = "https://creativecommons.org/licenses/by/4.0/";
-pub const ATTRIBUTION: &str = "Figures as published by the source named in each record. Compiled, cleaned, flagged and joined by Kanakku. Credit both.";
+pub const ATTRIBUTION: &str = "Figures as published by the source named in each record. Compiled, cleaned, flagged and joined by Kanakku. Credit both. The licence covers Kanakku's additions only; check each source's own terms before reusing its material.";
 
 /// A JSON body with the licence and attribution added at the top level.
 fn with_terms(mut body: Value) -> String {
@@ -62,6 +62,7 @@ pub fn project_json(project: &Project, data: &ProjectPage) -> String {
                 "status": f.status,
                 "raised_on": f.created_on,
                 "cleared_on": f.cleared_on,
+                "under_review_since": f.review_since,
             })
         })
         .collect();
@@ -375,6 +376,7 @@ pub fn flags_json(rows: &[crate::db::ApiFlagRow], page: u32, total: u32, next: O
                 "status": f.status,
                 "raised_on": f.created_on,
                 "cleared_on": f.cleared_on,
+                "under_review_since": f.review_since,
                 "snapshot": format!("/snapshot/{}", f.snapshot_id),
             })
         })

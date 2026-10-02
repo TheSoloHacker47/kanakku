@@ -140,6 +140,7 @@ pub fn layout(page: &Page, body: Markup) -> String {
                                 li { a href=(href("/data")) { (t.nav_data) } }
                                 li { a href=(href("/status")) { (lang.pick("പ്രവർത്തന നില", "Status")) } }
                                 li { a href=(href("/about")) { (lang.pick("കണക്കിനെക്കുറിച്ച്", "About")) } }
+                                li { a href=(href("/press")) { (lang.pick("മാധ്യമങ്ങൾക്ക്", "For the press")) } }
                             }
                         }
                         div {
@@ -212,6 +213,21 @@ pub fn report_link(lang: Lang, contact: &str, page_url: &str, reference: &str) -
     let href = format!("mailto:{contact}?subject={}&body={}", encode_segment(&subject), encode_segment(&body));
     html! {
         a.btn.ghost.sm href=(href) { (icon(icons::MAIL)) (lang.pick("തെറ്റ് അറിയിക്കുക", "Report a problem")) }
+    }
+}
+
+/// The line shown on a flag that someone has questioned, while it is checked against the source.
+pub fn review_note(lang: Lang, since: Option<&str>) -> Markup {
+    let Some(since) = since.and_then(Date::parse_iso) else { return html! {} };
+    html! {
+        p.review {
+            b { (lang.pick("പരിശോധനയിൽ", "Under review")) }
+            " · "
+            @match lang {
+                Lang::Ml => { "ഈ സൂചനയെക്കുറിച്ച് " (since.to_dmy()) "-ന് ഒരു പരാതി ലഭിച്ചു. ഉറവിടവുമായി ഒത്തുനോക്കുകയാണ്." },
+                Lang::En => { "This flag was questioned on " (since.to_dmy()) ". We are checking it against the source." },
+            }
+        }
     }
 }
 
