@@ -1,9 +1,10 @@
-//! Read queries. Each page costs exactly one D1 round trip: related queries go out as one batch.
+//! Read queries. Each page costs one D1 round trip: related queries go out as one batch. The one
+//! exception is a list or front page whose cached filter counts are out of date; see `Facets`.
 
 use kanakku_core::flags::FlagKind;
 use kanakku_core::stage::Stage;
-use serde::Deserialize;
-use worker::d1::D1Database;
+use serde::{Deserialize, Serialize};
+use worker::d1::{D1Database, D1Result};
 use worker::wasm_bindgen::JsValue;
 use worker::{query, Result};
 
@@ -98,7 +99,7 @@ const LIST_COLUMNS: &str = "p.code, p.title_en, p.department, p.estimated_amount
     (SELECT group_concat(name, '|') FROM project_constituencies c WHERE c.project_id = p.id) AS constituencies,
     (SELECT group_concat(DISTINCT type) FROM flags f WHERE f.project_id = p.id AND f.status = 'open') AS flag_types";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Facet {
     pub v: String,
     pub n: u32,
@@ -113,7 +114,7 @@ pub struct Facet {
     pub mla_ml: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Totals {
     pub total: u32,
     pub flagged: u32,
@@ -164,8 +165,78 @@ fn totals(clause: &str) -> String {
     )
 }
 
+/// A district's filter counts and totals: the same for every filtered view of that district, and
+/// changed only by a dashboard read. Rebuilding them costs about 13,000 row reads, so they are kept
+/// in `facet_cache` under the time of that read, and rebuilt by the first page view after the next.
+#[derive(Default, Deserialize, Serialize)]
+struct Facets {
+    totals: Totals,
+    departments: Vec<Facet>,
+    constituencies: Vec<Facet>,
+    stages: Vec<Facet>,
+    districts: Vec<Facet>,
+}
+
+/// The cached facets for `?1`, if they are from the latest dashboard read.
+const CACHED_FACETS: &str =
+    "SELECT json FROM facet_cache WHERE district = ?1 AND version = (SELECT last_scraped_at FROM sources WHERE id = 1)";
+
+fn cached_facets(result: &D1Result) -> Option<Facets> {
+    #[derive(Deserialize)]
+    struct Cached {
+        json: String,
+    }
+    result.results::<Cached>().ok()?.into_iter().next().and_then(|row| serde_json::from_str(&row.json).ok())
+}
+
+async fn build_facets(db: &D1Database, district: &str) -> Result<Facets> {
+    let d = [JsValue::from_str(district)];
+    let results = db
+        .batch(vec![
+            db.prepare("SELECT last_scraped_at AS v FROM sources WHERE id = 1"),
+            db.prepare(totals(&format!("WHERE {IN_DISTRICT}"))).bind(&d)?,
+            db.prepare(department_facet()).bind(&d)?,
+            db.prepare(CONSTITUENCY_FACET).bind(&d)?,
+            db.prepare(stage_facet()).bind(&d)?,
+            db.prepare(DISTRICT_FACET),
+        ])
+        .await?;
+    #[derive(Deserialize)]
+    struct Version {
+        v: Option<String>,
+    }
+    // Read in the same batch as the counts, so the counts are never filed under a newer read.
+    let version = results[0].results::<Version>()?.into_iter().next().and_then(|row| row.v);
+    let facets = Facets {
+        totals: results[1].results::<Totals>()?.into_iter().next().unwrap_or_default(),
+        departments: results[2].results()?,
+        constituencies: results[3].results()?,
+        stages: results[4].results()?,
+        districts: results[5].results()?,
+    };
+    if let (Some(version), Ok(json)) = (version, serde_json::to_string(&facets)) {
+        let saved = query!(
+            db,
+            "INSERT INTO facet_cache (district, version, json) VALUES (?1, ?2, ?3)
+             ON CONFLICT (district) DO UPDATE SET version = excluded.version, json = excluded.json",
+            district,
+            version,
+            json
+        )?
+        .run()
+        .await;
+        // Not fatal: the next view builds them again.
+        if let Err(e) = saved {
+            worker::console_error!("facet cache write failed: {e}");
+        }
+    }
+    Ok(facets)
+}
+
 pub async fn list(db: &D1Database, filter: &Filter) -> Result<Listing> {
     let (clause, binds) = where_clause(filter);
+    // A list narrowed by district alone has the district's own totals, which the cache holds.
+    let district_only = Filter { district: String::new(), ..filter.clone() }.is_empty();
 
     let mut page_binds = binds.clone();
     page_binds.push(JsValue::from_f64(PAGE_SIZE as f64));
@@ -178,19 +249,25 @@ pub async fn list(db: &D1Database, filter: &Filter) -> Result<Listing> {
             filter.sort.order_by()
         ))
         .bind(&page_binds)?;
-    let district = [JsValue::from_str(&filter.district)];
+    let mut statements = vec![
+        rows,
+        query!(db, "SELECT executing_agency AS name FROM projects WHERE agency_key = ?1 AND ?1 != '' LIMIT 1", filter.agency)?,
+        query!(db, CACHED_FACETS, filter.district)?,
+    ];
+    if !district_only {
+        statements.push(db.prepare(totals(&clause)).bind(&binds)?);
+    }
+    let results = db.batch(statements).await?;
 
-    let results = db
-        .batch(vec![
-            rows,
-            db.prepare(totals(&clause)).bind(&binds)?,
-            db.prepare(department_facet()).bind(&district)?,
-            db.prepare(CONSTITUENCY_FACET).bind(&district)?,
-            db.prepare(stage_facet()).bind(&district)?,
-            db.prepare(DISTRICT_FACET),
-            query!(db, "SELECT executing_agency AS name FROM projects WHERE agency_key = ?1 AND ?1 != '' LIMIT 1", filter.agency)?,
-        ])
-        .await?;
+    let facets = match cached_facets(&results[2]) {
+        Some(facets) => facets,
+        None => build_facets(db, &filter.district).await?,
+    };
+    let totals = if district_only {
+        facets.totals
+    } else {
+        results[3].results::<Totals>()?.into_iter().next().unwrap_or_default()
+    };
 
     #[derive(Deserialize)]
     struct Name {
@@ -198,12 +275,12 @@ pub async fn list(db: &D1Database, filter: &Filter) -> Result<Listing> {
     }
     Ok(Listing {
         rows: results[0].results()?,
-        totals: results[1].results::<Totals>()?.into_iter().next().unwrap_or_default(),
-        departments: results[2].results()?,
-        constituencies: results[3].results()?,
-        stages: results[4].results()?,
-        districts: results[5].results()?,
-        agency_name: results[6].results::<Name>()?.into_iter().next().and_then(|row| row.name),
+        totals,
+        departments: facets.departments,
+        constituencies: facets.constituencies,
+        stages: facets.stages,
+        districts: facets.districts,
+        agency_name: results[1].results::<Name>()?.into_iter().next().and_then(|row| row.name),
     })
 }
 
@@ -304,7 +381,7 @@ struct Count {
 pub async fn home(db: &D1Database, district: &str) -> Result<Home> {
     let results = db
         .batch(vec![
-            query!(db, &totals(&format!("WHERE {IN_DISTRICT}")), district)?,
+            query!(db, CACHED_FACETS, district)?,
             query!(
                 db,
                 &format!(
@@ -318,9 +395,6 @@ pub async fn home(db: &D1Database, district: &str) -> Result<Home> {
                 &format!("SELECT {LIST_COLUMNS} FROM projects p WHERE {IN_DISTRICT} ORDER BY COALESCE(p.expenditure, 0) DESC LIMIT 5"),
                 district,
             )?,
-            query!(db, &department_facet(), district)?,
-            query!(db, CONSTITUENCY_FACET, district)?,
-            query!(db, &stage_facet(), district)?,
             query!(
                 db,
                 &format!(
@@ -347,21 +421,24 @@ pub async fn home(db: &D1Database, district: &str) -> Result<Home> {
                  WHERE missing_since IS NULL AND ends_on >= date('now', '+330 minutes') AND (?1 = '' OR district = ?1)",
                 district,
             )?,
-            db.prepare(DISTRICT_FACET),
         ])
         .await?;
+    let facets = match cached_facets(&results[0]) {
+        Some(facets) => facets,
+        None => build_facets(db, district).await?,
+    };
     Ok(Home {
-        totals: results[0].results::<Totals>()?.into_iter().next().unwrap_or_default(),
+        totals: facets.totals,
         flagged: results[1].results()?,
         largest: results[2].results()?,
-        departments: results[3].results()?,
-        constituencies: results[4].results()?,
-        stages: results[5].results()?,
-        points: results[6].results()?,
-        changes: results[7].results()?,
-        funding: results[8].results::<FundingTotals>()?.into_iter().next().unwrap_or_default(),
-        liability: results[9].results::<Count>()?.into_iter().next().map(|row| row.n).unwrap_or(0),
-        districts: results[10].results()?,
+        departments: facets.departments,
+        constituencies: facets.constituencies,
+        stages: facets.stages,
+        points: results[3].results()?,
+        changes: results[4].results()?,
+        funding: results[5].results::<FundingTotals>()?.into_iter().next().unwrap_or_default(),
+        liability: results[6].results::<Count>()?.into_iter().next().map(|row| row.n).unwrap_or(0),
+        districts: facets.districts,
     })
 }
 
