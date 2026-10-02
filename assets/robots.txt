@@ -2,3 +2,8 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /snapshot/
+# Filtered, sorted and paged lists, searches and tagged links. Every project, payment and
+# contractor page is in the sitemap, so crawlers lose nothing; these URLs only multiply.
+Disallow: /*?
+
+Sitemap: https://keralakanakku.com/sitemap.xml

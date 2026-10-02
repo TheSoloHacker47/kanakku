@@ -5,8 +5,8 @@ use kanakku_core::model::Project;
 use kanakku_core::names;
 use kanakku_core::visits;
 use worker::{
-    console_error, console_log, event, Cache, Context, Env, Error, Headers, Method, Request, Response, Result, ScheduleContext,
-    ScheduledEvent,
+    console_error, console_log, event, Cache, Context, Env, Error, ForwardableEmailMessage, Headers, Method, Request, Response,
+    Result, ScheduleContext, ScheduledEvent,
 };
 
 mod api;
@@ -18,8 +18,10 @@ mod http;
 mod icons;
 mod ingest;
 mod liability;
+mod mail;
 mod og;
 mod runs;
+mod usage;
 mod views;
 
 use http::Policy;
@@ -65,6 +67,13 @@ fn canonical_redirect(req: &Request, env: &Env) -> Result<Option<worker::Url>> {
     Ok(Some(to))
 }
 
+/// Mail to the corrections address: Email Routing hands it here instead of forwarding it directly.
+#[event(email)]
+async fn email(message: ForwardableEmailMessage, env: Env, _ctx: Context) -> Result<()> {
+    mail::handle(message, &env).await;
+    Ok(())
+}
+
 #[event(scheduled)]
 async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     // The sources fail independently; one being down must not stop the others.
@@ -84,6 +93,12 @@ async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     // The liability list is read weekly; a night it is skipped is not a run.
     if !matches!(&result, Ok(report) if report.skipped) {
         runs::record(&env, 3, "cron", &started, &result).await;
+    }
+
+    match usage::check(&env).await {
+        Ok(Some(report)) => console_log!("usage checked: {} new alerts", report.new_alerts.len()),
+        Ok(None) => {}
+        Err(e) => console_error!("usage check failed: {e}"),
     }
 
     // The 02:30 IST run on a Monday also sends last week's summary.
@@ -302,6 +317,13 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
         }
         "/api/v1/projects.csv" => http::data(api::projects_csv(&db::export(&db).await?), "text/csv; charset=utf-8"),
         "/api/v1/changes" | "/api/v1/flags" | "/api/v1/snapshots" => api_list(req, &db, rest).await,
+        "/sitemap.xml" if lang == Lang::Ml => {
+            let [projects, funded, contractors, agencies] = db::sitemap_keys(&db).await?;
+            let paths = kanakku_core::sitemap::paths(&projects, &funded, &contractors, &agencies);
+            // Always the public address, whichever host the request came in on.
+            let site = env.var("CANONICAL_HOST").map(|h| format!("https://{h}")).unwrap_or_else(|_| origin.to_string());
+            http::data(kanakku_core::sitemap::xml(&site, &paths), "application/xml; charset=utf-8")
+        }
         "/api/v1/projects.geojson" => http::data(api::projects_geojson(&db::export(&db).await?), "application/geo+json; charset=utf-8"),
         _ => {
             if let Some(code) = rest.strip_prefix("/p/").filter(|c| is_code(c)) {
@@ -527,7 +549,7 @@ fn is_code(s: &str) -> bool {
 }
 
 async fn admin(mut req: Request, env: &Env) -> Result<Response> {
-    if !matches!(req.path().as_str(), "/admin/ingest" | "/admin/digest" | "/admin/review") {
+    if !matches!(req.path().as_str(), "/admin/ingest" | "/admin/digest" | "/admin/review" | "/admin/usage") {
         return Response::error("Not found", 404);
     }
     if !authorised(&req, env) {
@@ -545,6 +567,13 @@ async fn admin(mut req: Request, env: &Env) -> Result<Response> {
         let today = kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64).to_iso();
         let changed = db::set_review(&env.d1("DB")?, &source, &param("record"), &param("type"), &param("work"), param("off").is_empty(), &today).await?;
         return Response::from_json(&serde_json::json!({ "flags_changed": changed }));
+    }
+    // Runs the cost guard now: this month's usage, alerting on any level not yet announced.
+    if req.path() == "/admin/usage" {
+        return match usage::check(env).await? {
+            Some(report) => Response::from_json(&report),
+            None => Response::error("The cost guard needs CF_ACCOUNT_ID and the CF_ANALYTICS_TOKEN secret", 503),
+        };
     }
     // Sends the weekly summary now, to check the webhook and the numbers.
     if req.path() == "/admin/digest" {

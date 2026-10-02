@@ -204,7 +204,11 @@ pub async fn digest(env: &Env) -> worker::Result<String> {
     let db = env.d1("DB")?;
     let d = crate::db::digest(&db, &from.to_iso(), &to.to_iso(), &prev_from.to_iso()).await?;
     let site = format!("https://{}", env.var("CANONICAL_HOST").map(|v| v.to_string()).unwrap_or_else(|_| "keralakanakku.com".into()));
-    let message = digest_message(&site, &from.to_dmy(), &to.to_dmy(), &d);
+    let mut message = digest_message(&site, &from.to_dmy(), &to.to_dmy(), &d);
+    // The cost guard's figures, when it is configured; a failure there must not stop the digest.
+    if let Ok(Some((_, _, lines))) = crate::usage::current(env).await {
+        message.push_str(&format!("\n**Cloudflare usage this month (whole account, share of what the plan includes):** {}", kanakku_core::usage::summary(&lines)));
+    }
     alert(env, &message).await;
     Ok(message)
 }

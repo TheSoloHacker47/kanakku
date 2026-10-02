@@ -1092,6 +1092,35 @@ const AGENCY_ROWS: &str = "SELECT key, MAX(name) AS name, SUM(packages) AS packa
         FROM funding_projects WHERE agency_key IS NOT NULL AND missing_since IS NULL GROUP BY 1
     ) GROUP BY key";
 
+/// The keys of every page the sitemap lists: projects, funded projects, contractors and agencies.
+pub async fn sitemap_keys(db: &D1Database) -> Result<[Vec<String>; 4]> {
+    #[derive(Deserialize)]
+    struct Key {
+        k: String,
+    }
+    let results = db
+        .batch(vec![
+            db.prepare("SELECT code AS k FROM projects WHERE missing_since IS NULL ORDER BY code"),
+            db.prepare("SELECT ref AS k FROM funding_projects WHERE missing_since IS NULL ORDER BY ref"),
+            db.prepare(
+                "SELECT contractor_key AS k FROM works w JOIN projects p ON p.id = w.project_id
+                  WHERE contractor_key != '' AND p.missing_since IS NULL
+                 UNION
+                 SELECT contractor_key FROM liability_works WHERE contractor_key != '' AND missing_since IS NULL
+                 ORDER BY 1",
+            ),
+            db.prepare(
+                "SELECT agency_key AS k FROM projects WHERE agency_key != '' AND missing_since IS NULL
+                 UNION
+                 SELECT agency_key FROM funding_projects WHERE agency_key != '' AND missing_since IS NULL
+                 ORDER BY 1",
+            ),
+        ])
+        .await?;
+    let keys = |i: usize| -> Result<Vec<String>> { Ok(results[i].results::<Key>()?.into_iter().map(|r| r.k).collect()) };
+    Ok([keys(0)?, keys(1)?, keys(2)?, keys(3)?])
+}
+
 pub async fn agencies(db: &D1Database) -> Result<Vec<AgencyRow>> {
     db.prepare(format!("{AGENCY_ROWS} ORDER BY COALESCE(SUM(approved), 0) DESC, SUM(packages) DESC, key")).all().await?.results()
 }

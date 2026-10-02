@@ -35,7 +35,11 @@ crons = ["0 21 * * *"] # 02:30 IST
 PILOT_DISTRICT = "*" # one district by name, or * for the whole state
 EDGE_CACHE = "on"
 CANONICAL_HOST = "keralakanakku.com" # page requests on any other public host redirect here
-CONTACT = "corrections@keralakanakku.com" # shown on /about and sent in the scraper's User-Agent; forwards via Email Routing
+CONTACT = "corrections@keralakanakku.com" # shown on /about and sent in the scraper's User-Agent; Email Routing hands its mail to this Worker
+CF_ACCOUNT_ID = "20f8c1bd324e2c89c6797b89e7547c12" # whose usage the cost guard reads
+
+# Secrets (wrangler secret put): INGEST_TOKEN, ALERT_WEBHOOK, FORWARD_TO (where corrections mail goes),
+# CF_ANALYTICS_TOKEN (an API token with only Account Analytics: Read, for the cost guard).
 
 [observability]
 enabled = true
