@@ -28,6 +28,9 @@ const TILES_KEY: &str = "tiles/kerala.pmtiles";
 
 #[event(fetch)]
 async fn fetch(req: Request, env: Env, ctx: Context) -> Result<Response> {
+    if let Some(to) = canonical_redirect(&req, &env)? {
+        return Response::redirect_with_status(to, 301);
+    }
     let result = match req.method() {
         // Range requests for map tiles go straight to R2; the Cache API cannot store partial responses.
         Method::Get | Method::Head if req.path() == TILES_PATH => tiles(&req, &env).await,
@@ -39,6 +42,26 @@ async fn fetch(req: Request, env: Env, ctx: Context) -> Result<Response> {
         console_error!("request failed: {e}");
         Response::error("Something went wrong on our side.", 500)
     })
+}
+
+/// Where a page request on `www.` or the workers.dev address belongs: the same path and query on
+/// `CANONICAL_HOST`. Other hosts (local development) and other methods are left alone, so the
+/// admin endpoint keeps working on workers.dev.
+fn canonical_redirect(req: &Request, env: &Env) -> Result<Option<worker::Url>> {
+    let Ok(canonical) = env.var("CANONICAL_HOST").map(|v| v.to_string()) else { return Ok(None) };
+    if canonical.is_empty() || !matches!(req.method(), Method::Get | Method::Head) {
+        return Ok(None);
+    }
+    let url = req.url()?;
+    let host = url.host_str().unwrap_or_default();
+    if host == canonical || !(host.ends_with(".workers.dev") || host == format!("www.{canonical}")) {
+        return Ok(None);
+    }
+    let mut to = url.clone();
+    to.set_host(Some(&canonical)).map_err(|e| Error::RustError(e.to_string()))?;
+    let _ = to.set_scheme("https");
+    let _ = to.set_port(None);
+    Ok(Some(to))
 }
 
 #[event(scheduled)]
