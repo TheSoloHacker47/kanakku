@@ -40,3 +40,20 @@ Reading every list page once is roughly 14,000 requests of about 80 KB each (the
 2. **Meanwhile, a one-district pilot:** Ernakulam's 82 grama panchayats (about 900 list pages), read over a week at one request every two seconds. Build the pages (local body → projects; planned vs spent; a "nothing spent yet" view late in the year) and judge whether people use them.
 3. **Statewide only after IKM answers,** or after a few weeks without objection to the pilot, using a Cloudflare Queue so the work spreads across many short invocations. A single cron run is capped at 15 minutes.
 4. **No new flags at first.** Planned vs spent is meaningful only against the financial-year calendar. Show it plainly, and design flags later with care.
+
+## Built, waiting to be switched on (2 October 2026)
+
+The reader is deployed and off. What exists:
+
+- `kanakku_core::aspnet`: reads an ASP.NET form's hidden state and drop-downs, builds a postback, and reads GridView tables, including the pager. Tested against a saved copy of the district-panchayat summary.
+- `kanakku_core::sulekha`: the summary tables (`gvState`, `gvStat`) and the project list (`gvProjects`); the read refuses a table that has lost its Formulation or Expense column.
+- `crates/worker/src/sulekha.rs`: the walk (year → kind → district → each local body → each page), one request every two seconds with the scraper's User-Agent, a nine-minute time box on its own 04:00 IST cron, and the position saved in `crawl_state` after every local body, so the next night carries on. After a full pass it rests seven days.
+- Migration 0015: `local_bodies`, `plan_projects` (planned and spent per project, with `first_seen_on`, `changed_on`, `missing_since`) and `crawl_state`. Each local body's list is kept as a TSV extract in R2, not the raw pages, which are mostly view state.
+
+**To switch on the Ernakulam pilot** (only once IKM agrees, or the user decides after 16 October):
+
+1. Set `SULEKHA = "Ernakulam:gp"` in `wrangler.toml` and deploy.
+2. Run it once by hand and watch it: `POST /admin/ingest?source=sulekha` with the ingest token.
+3. The project-list parser has been tested only on a list built to the spike's description, because the spike saved no list page. Expect to adjust column matching on the first real run; the read refuses rather than storing a misread page.
+
+Pages (a local body's projects, planned against spent) come after the first real data, so they are designed around what Sulekha actually returns.

@@ -55,7 +55,7 @@ pub async fn current(env: &Env) -> worker::Result<Option<(Date, u32, Vec<Line>)>
     });
     let headers = Headers::new();
     headers.set("Content-Type", "application/json")?;
-    headers.set("Authorization", &format!("Bearer {}", token.to_string()))?;
+    headers.set("Authorization", &format!("Bearer {token}"))?;
     let mut init = RequestInit::new();
     init.with_method(Method::Post).with_headers(headers).with_body(Some(body.to_string().into()));
     let mut response = Fetch::Request(Request::new_with_init(GRAPHQL, &init)?).send().await?;

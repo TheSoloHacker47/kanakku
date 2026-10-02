@@ -13,7 +13,9 @@ use kanakku_core::Date;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use worker::d1::{D1Database, D1PreparedStatement};
-use worker::{query, Env, Error, Fetch, Headers, HttpMetadata, Request, RequestInit, Result};
+
+use crate::snapshot;
+use worker::{query, Env, Error, Fetch, Headers, Request, RequestInit, Result};
 
 const SOURCE_ID: u32 = 1;
 const BATCH_SIZE: usize = 80;
@@ -33,11 +35,6 @@ pub struct Report {
     pub flags_open: usize,
 }
 
-#[derive(Deserialize)]
-struct SnapshotRow {
-    id: i64,
-    sha256: String,
-}
 
 #[derive(Deserialize)]
 struct SourceRow {
@@ -109,35 +106,14 @@ pub async fn run(env: &Env, pushed: Option<Vec<u8>>) -> Result<Report> {
 
     let mut report = Report { page_bytes: page.len(), sha256: sha256.clone(), projects: parsed.projects.len(), ..Report::default() };
 
-    let latest = query!(&db, "SELECT id, sha256 FROM snapshots WHERE source_id = ?1 ORDER BY id DESC LIMIT 1", SOURCE_ID)?
-        .first::<SnapshotRow>(None)
-        .await?;
-
+    let latest = snapshot::latest(&db, SOURCE_ID, None).await?;
     let snapshot_id = match latest {
         Some(row) if row.sha256 == sha256 => row.id,
         _ => {
             let key = format!("snapshots/kiifb/{today_iso}-{}.html", &sha256[..16]);
-            let bytes = page.len();
-            env.bucket("BUCKET")?
-                .put(key.as_str(), page)
-                .http_metadata(HttpMetadata { content_type: Some("text/html; charset=utf-8".into()), ..HttpMetadata::default() })
-                .execute()
-                .await?;
-            let row = query!(
-                &db,
-                "INSERT INTO snapshots (source_id, url, r2_key, sha256, bytes, fetched_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id, sha256",
-                SOURCE_ID,
-                kiifb::SOURCE_URL,
-                key,
-                sha256,
-                bytes,
-                now_iso,
-            )?
-            .first::<SnapshotRow>(None)
-            .await?
-            .ok_or_else(|| Error::RustError("snapshot insert returned no row".into()))?;
+            let copy = snapshot::Copy { source_id: SOURCE_ID, url: kiifb::SOURCE_URL, key: &key, content_type: snapshot::HTML, sha256: &sha256, now_iso: &now_iso };
             report.new_snapshot = true;
-            row.id
+            snapshot::store(env, &db, copy, page).await?
         }
     };
 

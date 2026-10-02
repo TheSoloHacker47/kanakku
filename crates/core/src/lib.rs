@@ -1,6 +1,7 @@
 //! Pure domain logic for Kanakku: source parsing, flag rules, formatting and UI strings.
 //! No wasm or Cloudflare dependencies, so everything here is tested natively.
 
+pub mod aspnet;
 pub mod changes;
 pub mod constituencies;
 pub mod date;
@@ -18,6 +19,7 @@ pub mod pwd_dlp;
 pub mod search;
 pub mod sitemap;
 pub mod stage;
+pub mod sulekha;
 pub mod title;
 pub mod usage;
 pub mod visits;

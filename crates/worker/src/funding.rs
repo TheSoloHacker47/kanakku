@@ -15,9 +15,10 @@ use kanakku_core::Date;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use worker::d1::{D1Database, D1PreparedStatement};
-use worker::{query, Delay, Env, Error, Fetch, Headers, HttpMetadata, Method, Request, RequestInit, Result};
+use worker::{query, Delay, Env, Error, Fetch, Headers, Method, Request, RequestInit, Result};
 
 use crate::ingest::{hex, run_batches, user_agent};
+use crate::snapshot;
 
 const SOURCE_ID: u32 = 2;
 /// Work tables read in one run when nothing forces more.
@@ -50,11 +51,6 @@ pub struct Report {
     pub flags_open: usize,
 }
 
-#[derive(Deserialize)]
-struct SnapshotRow {
-    id: i64,
-    sha256: String,
-}
 
 #[derive(Deserialize)]
 struct SourceRow {
@@ -150,14 +146,7 @@ pub async fn run(env: &Env, max_details: usize) -> Result<Report> {
     let mut filing: Vec<(&String, Vec<&str>)> = filed.iter().map(|(r, d)| (r, d.iter().map(|(_, name)| *name).collect())).collect();
     filing.sort();
     let sha256 = hex(&Sha256::digest(serde_json::to_vec(&(&listed, &filing)).map_err(|e| Error::RustError(e.to_string()))?));
-    let latest = query!(
-        &db,
-        "SELECT id, sha256 FROM snapshots WHERE source_id = ?1 AND url = ?2 ORDER BY id DESC LIMIT 1",
-        SOURCE_ID,
-        status::SOURCE_URL,
-    )?
-    .first::<SnapshotRow>(None)
-    .await?;
+    let latest = snapshot::latest(&db, SOURCE_ID, Some(status::SOURCE_URL)).await?;
     let snapshot_id = match latest {
         Some(row) if row.sha256 == sha256 => row.id,
         _ => {
@@ -585,26 +574,8 @@ fn observation(
 
 /// Keeps a copy in R2 and records it. Returns the snapshot id.
 async fn store(env: &Env, db: &D1Database, key: &str, url: &str, sha256: &str, body: Vec<u8>, now_iso: &str) -> Result<i64> {
-    let bytes = body.len();
-    env.bucket("BUCKET")?
-        .put(key, body)
-        .http_metadata(HttpMetadata { content_type: Some("text/html; charset=utf-8".into()), ..HttpMetadata::default() })
-        .execute()
-        .await?;
-    query!(
-        db,
-        "INSERT INTO snapshots (source_id, url, r2_key, sha256, bytes, fetched_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id, sha256",
-        SOURCE_ID,
-        url,
-        key,
-        sha256,
-        bytes,
-        now_iso,
-    )?
-    .first::<SnapshotRow>(None)
-    .await?
-    .map(|row| row.id)
-    .ok_or_else(|| Error::RustError("snapshot insert returned no row".into()))
+    let copy = snapshot::Copy { source_id: SOURCE_ID, url, key, content_type: snapshot::HTML, sha256, now_iso };
+    snapshot::store(env, db, copy, body).await
 }
 
 /// Submits the public form, for a district's list or for one selected project.

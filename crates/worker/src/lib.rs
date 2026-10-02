@@ -21,6 +21,8 @@ mod liability;
 mod mail;
 mod og;
 mod runs;
+mod snapshot;
+mod sulekha;
 mod usage;
 mod views;
 
@@ -74,8 +76,21 @@ async fn email(message: ForwardableEmailMessage, env: Env, _ctx: Context) -> Res
     Ok(())
 }
 
+/// The second cron: Sulekha, read on its own so a slow night there cannot delay the others.
+const SULEKHA_CRON: &str = "30 22 * * *";
+
 #[event(scheduled)]
-async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+    if event.cron() == SULEKHA_CRON {
+        let started = runs::now_iso();
+        let result = sulekha::run(&env).await;
+        log_outcome("sulekha", &result);
+        // Nights it is off or resting are not runs.
+        if !matches!(&result, Ok(report) if report.skipped.is_some()) {
+            runs::record(&env, kanakku_core::sulekha::SOURCE_ID, "cron", &started, &result).await;
+        }
+        return;
+    }
     // The sources fail independently; one being down must not stop the others.
     let started = runs::now_iso();
     let result = ingest::run(&env, None).await;
@@ -587,6 +602,13 @@ async fn admin(mut req: Request, env: &Env) -> Result<Response> {
         let details = param("details").and_then(|n| n.parse().ok()).unwrap_or(funding::DEFAULT_DETAILS);
         let result = funding::run(env, details).await;
         runs::record(env, 2, "manual", &started, &result).await;
+        return Response::from_json(&result?);
+    }
+    if param("source").as_deref() == Some("sulekha") {
+        let result = sulekha::run(env).await;
+        if !matches!(&result, Ok(report) if report.skipped.is_some()) {
+            runs::record(env, kanakku_core::sulekha::SOURCE_ID, "manual", &started, &result).await;
+        }
         return Response::from_json(&result?);
     }
     if param("source").as_deref() == Some("liability") {

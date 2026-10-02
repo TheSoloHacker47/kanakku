@@ -13,9 +13,10 @@ use kanakku_core::Date;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use worker::d1::D1Database;
-use worker::{query, Delay, Env, Error, Fetch, Headers, HttpMetadata, Request, RequestInit, Result};
+use worker::{query, Delay, Env, Error, Fetch, Headers, Request, RequestInit, Result};
 
 use crate::ingest::{hex, run_batches, user_agent};
+use crate::snapshot;
 
 const SOURCE_ID: u32 = 3;
 /// The list changes slowly, so the nightly trigger only reads it when the last read is this old.
@@ -39,11 +40,6 @@ pub struct Report {
     pub rows_updated: usize,
 }
 
-#[derive(Deserialize)]
-struct SnapshotRow {
-    id: i64,
-    sha256: String,
-}
 
 #[derive(Deserialize)]
 struct SourceRow {
@@ -151,34 +147,14 @@ pub async fn run(env: &Env, force: bool) -> Result<Report> {
     let sha256 = hex(&Sha256::digest(
         serde_json::to_vec(&keyed.iter().map(|(_, w)| w).collect::<Vec<_>>()).map_err(|e| Error::RustError(e.to_string()))?,
     ));
-    let latest = query!(&db, "SELECT id, sha256 FROM snapshots WHERE source_id = ?1 ORDER BY id DESC LIMIT 1", SOURCE_ID)?
-        .first::<SnapshotRow>(None)
-        .await?;
+    let latest = snapshot::latest(&db, SOURCE_ID, None).await?;
     let snapshot_id = match latest {
         Some(row) if row.sha256 == sha256 => row.id,
         _ => {
             report.new_snapshot = true;
             let key = format!("snapshots/pwd-dlp/{today_iso}-{}.tsv", &sha256[..16]);
-            let bytes = extract.len();
-            env.bucket("BUCKET")?
-                .put(key.as_str(), extract.into_bytes())
-                .http_metadata(HttpMetadata { content_type: Some("text/tab-separated-values; charset=utf-8".into()), ..HttpMetadata::default() })
-                .execute()
-                .await?;
-            query!(
-                &db,
-                "INSERT INTO snapshots (source_id, url, r2_key, sha256, bytes, fetched_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id, sha256",
-                SOURCE_ID,
-                dlp::SOURCE_URL,
-                key,
-                sha256,
-                bytes,
-                now_iso,
-            )?
-            .first::<SnapshotRow>(None)
-            .await?
-            .map(|row| row.id)
-            .ok_or_else(|| Error::RustError("snapshot insert returned no row".into()))?
+            let copy = snapshot::Copy { source_id: SOURCE_ID, url: dlp::SOURCE_URL, key: &key, content_type: snapshot::TSV, sha256: &sha256, now_iso: &now_iso };
+            snapshot::store(env, &db, copy, extract.into_bytes()).await?
         }
     };
 

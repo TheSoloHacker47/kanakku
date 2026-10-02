@@ -6,7 +6,8 @@ use worker::{console_error, query, Env, Fetch, Headers, Method, Request, Request
 
 /// How old a source's last good read may be before it counts as stale: `(source id, hours)`.
 /// The dashboard and status page are read nightly, the liability list weekly.
-pub const STALE_AFTER_HOURS: [(u32, i64); 3] = [(1, 36), (2, 36), (3, 9 * 24)];
+/// Sulekha (4) rests a week after each full pass, so it is stale only after nine days.
+pub const STALE_AFTER_HOURS: [(u32, i64); 4] = [(1, 36), (2, 36), (3, 9 * 24), (4, 9 * 24)];
 
 pub fn now_iso() -> String {
     worker::js_sys::Date::new_0().to_iso_string().into()
@@ -17,6 +18,7 @@ pub fn source_name(source_id: u32) -> &'static str {
         1 => "KIIFB dashboard",
         2 => "KIIFB project status",
         3 => "PWD liability list",
+        4 => "Sulekha plan projects",
         _ => "unknown source",
     }
 }

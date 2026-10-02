@@ -1034,7 +1034,10 @@ pub async fn status(db: &D1Database) -> Result<Status> {
                 "SELECT s.id, s.name, s.base_url, s.last_scraped_at,
                         (SELECT MAX(finished_at) FROM ingest_runs r WHERE r.source_id = s.id AND r.ok = 1) AS last_ok_at,
                         (SELECT ok FROM ingest_runs r WHERE r.source_id = s.id ORDER BY r.id DESC LIMIT 1) AS last_run_ok
-                 FROM sources s ORDER BY s.id",
+                 FROM sources s
+                 -- A source that has never been read (one waiting to be switched on) is not stale.
+                 WHERE s.last_scraped_at IS NOT NULL OR EXISTS (SELECT 1 FROM ingest_runs r WHERE r.source_id = s.id)
+                 ORDER BY s.id",
             ),
             db.prepare("SELECT source_id, trigger, finished_at, ok, summary FROM ingest_runs ORDER BY id DESC LIMIT 15"),
             db.prepare(
