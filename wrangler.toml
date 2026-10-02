@@ -35,7 +35,7 @@ crons = ["0 21 * * *"] # 02:30 IST
 PILOT_DISTRICT = "*" # one district by name, or * for the whole state
 EDGE_CACHE = "on"
 CANONICAL_HOST = "keralakanakku.com" # page requests on any other public host redirect here
-CONTACT = "" # a URL or address for the scraper's User-Agent, so KIIFB can reach you
+CONTACT = "corrections@keralakanakku.com" # shown on /about and sent in the scraper's User-Agent; forwards via Email Routing
 
 [observability]
 enabled = true
