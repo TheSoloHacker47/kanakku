@@ -152,6 +152,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
     let origin = req.url()?.origin().ascii_serialization();
     let origin = origin.as_str();
     let checked = || async { db::last_checked(&db).await };
+    let contact = env.var("CONTACT").map(|v| v.to_string()).unwrap_or_default();
     // A search that finds nothing is noted, so the words it missed can be taught to the search.
     let person = req.headers().get("User-Agent")?.is_some_and(|ua| !runs::is_robot(&ua));
     let missed = |surface: &'static str, q: String| async move {
@@ -178,10 +179,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             http::html(views::list::render(lang, origin, &filter, &listing), 200, Policy::Page)
         }
         "/methodology" => http::html(views::pages::methodology(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
-        "/about" => {
-            let contact = env.var("CONTACT").map(|v| v.to_string()).unwrap_or_default();
-            http::html(views::pages::about(lang, origin, &contact), 200, Policy::Page)
-        }
+        "/about" => http::html(views::pages::about(lang, origin, &contact), 200, Policy::Page),
         "/data" => http::html(views::pages::data(lang, origin, checked().await?.as_deref()), 200, Policy::Page),
         "/map" => http::html(views::pages::map(lang, origin, checked().await?.as_deref()), 200, Policy::Map),
         "/funding" => {
@@ -253,7 +251,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             if let Some(code) = rest.strip_prefix("/p/").filter(|c| is_code(c)) {
                 if let Some((project, data)) = load_project(&db, code).await? {
                     let today = kanakku_core::Date::from_unix_ms_ist(worker::Date::now().as_millis() as i64);
-                    return http::html(views::project::render(lang, origin, &project, &data, today), 200, Policy::Page);
+                    return http::html(views::project::render(lang, origin, &project, &data, today, &contact), 200, Policy::Page);
                 }
             } else if let Some(code) = rest.strip_prefix("/api/v1/projects/").filter(|c| is_code(c)) {
                 return match load_project(&db, code).await? {
@@ -284,7 +282,7 @@ async fn route(req: &Request, env: &Env) -> Result<Response> {
             } else if let Some(reference) = rest.strip_prefix("/f/").filter(|r| is_code(r)) {
                 if let Some(data) = db::funding_project(&db, reference).await? {
                     let project = serde_json::from_str(&data.row.record_json).map_err(|e| Error::RustError(e.to_string()))?;
-                    return http::html(views::funding::detail(lang, origin, &project, &data), 200, Policy::Page);
+                    return http::html(views::funding::detail(lang, origin, &project, &data, &contact), 200, Policy::Page);
                 }
             } else if let Some(id) = rest.strip_prefix("/snapshot/").and_then(|id| id.parse::<i64>().ok()) {
                 return snapshot(env, &db, id).await;

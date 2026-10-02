@@ -192,6 +192,29 @@ pub fn dash(lang: Lang) -> Markup {
     html! { span aria-hidden="true" { "—" } span.vh { (lang.t().not_reported) } }
 }
 
+/// "Report a problem with this page": an email to the corrections address with the record's code
+/// in the subject and the page's address in the body. Nothing when no email address is configured.
+pub fn report_link(lang: Lang, contact: &str, page_url: &str, reference: &str) -> Markup {
+    let contact = contact.trim();
+    if !contact.contains('@') || contact.contains('/') {
+        return html! {};
+    }
+    let (subject, body) = match lang {
+        Lang::Ml => (
+            format!("തിരുത്ത്: {reference}"),
+            format!("താൾ: {page_url}\n\nതെറ്റ് എന്താണ്:\n\nശരിയായ വിവരം എവിടെ പ്രസിദ്ധീകരിച്ചിരിക്കുന്നു:\n"),
+        ),
+        Lang::En => (
+            format!("Correction: {reference}"),
+            format!("Page: {page_url}\n\nWhat is wrong:\n\nWhere the correct figure is published:\n"),
+        ),
+    };
+    let href = format!("mailto:{contact}?subject={}&body={}", encode_segment(&subject), encode_segment(&body));
+    html! {
+        a.btn.ghost.sm href=(href) { (icon(icons::MAIL)) (lang.pick("തെറ്റ് അറിയിക്കുക", "Report a problem")) }
+    }
+}
+
 /// Text that stays in English on a Malayalam page (KIIFB publishes names and statuses in English).
 pub fn en(text: &str) -> Markup {
     html! { span lang="en" { (text) } }

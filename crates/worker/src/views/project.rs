@@ -13,12 +13,12 @@ use kanakku_core::{kiifb, Date};
 use maud::{html, Markup};
 use worker::url::form_urlencoded::byte_serialize;
 
-use super::{big_amount, dash, department_icon, dot_map, en, funding, icon, layout, meter, on_dot_map, Nav, Page};
+use super::{big_amount, dash, report_link, department_icon, dot_map, en, funding, icon, layout, meter, on_dot_map, Nav, Page};
 use crate::db::ProjectPage;
 use crate::http::encode_segment;
 use crate::icons;
 
-pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, today: Date) -> String {
+pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, today: Date, contact: &str) -> String {
     let t = lang.t();
     let p = lang.prefix();
     let row = &data.row;
@@ -265,6 +265,7 @@ pub fn render(lang: Lang, origin: &str, project: &Project, data: &ProjectPage, t
                         a.btn.ghost.sm href=(format!("/snapshot/{}", row.snapshot_id)) rel="nofollow" { (icon(icons::DOWNLOAD)) (lang.pick("സൂക്ഷിച്ച പകർപ്പ്", "Stored copy")) }
                         a.btn.ghost.sm href=(kiifb::SOURCE_URL) rel="noopener" { (lang.pick("കിഫ്ബി ഡാഷ്ബോർഡ്", "KIIFB dashboard")) (icon(icons::ARROW_UP_RIGHT)) }
                         a.btn.ghost.sm href=(format!("/api/v1/projects/{}", encode_segment(&project.code))) { (icon(icons::DATABASE)) "JSON" }
+                        (report_link(lang, contact, &url, &project.code))
                         a.btn.sm href=(share) rel="noopener" { (icon(icons::SHARE_2)) (lang.pick("വാട്സ്ആപ്പിൽ പങ്കിടുക", "Share on WhatsApp")) }
                     }
                 }

@@ -8,7 +8,7 @@ import re, pathlib
 ICONS = [
     # interface
     "search", "sliders-horizontal", "map-pin", "flag", "arrow-right", "arrow-left", "arrow-up-right", "download", "share-2", "x",
-    "database", "scale", "chevron-right", "languages", "landmark", "circle-help",
+    "database", "scale", "chevron-right", "languages", "landmark", "circle-help", "mail",
     # departments
     "graduation-cap", "school", "route", "heart-pulse", "droplets", "cpu", "ship", "fish", "users", "building-2", "stamp",
     "zap", "trophy", "sprout", "trees", "bus", "factory", "palmtree", "shield", "drama",

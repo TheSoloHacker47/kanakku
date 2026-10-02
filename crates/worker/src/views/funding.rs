@@ -10,7 +10,7 @@ use kanakku_core::title::display_title;
 use kanakku_core::Date;
 use maud::{html, Markup};
 
-use super::{big_amount, dash, department_icon, en, icon, layout, meter, pager, pair, Nav, Page};
+use super::{big_amount, dash, report_link, department_icon, en, icon, layout, meter, pager, pair, Nav, Page};
 use crate::db::{FundingLink, FundingListing, FundingPage, FundingRow, FundingSort, FundingTotals, FUNDING_PAGE_SIZE};
 use crate::http::encode_segment;
 use crate::icons;
@@ -285,7 +285,7 @@ pub fn list_row(lang: Lang, row: &FundingRow) -> Markup {
     }
 }
 
-pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingPage) -> String {
+pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingPage, contact: &str) -> String {
     let t = lang.t();
     let p = lang.prefix();
     let row = &data.row;
@@ -455,6 +455,7 @@ pub fn detail(lang: Lang, origin: &str, project: &FundedProject, data: &FundingP
                             a.btn.ghost.sm href=(format!("/snapshot/{id}")) rel="nofollow" { (icon(icons::DOWNLOAD)) (lang.pick("പ്രവൃത്തി പട്ടികയുടെ പകർപ്പ്", "Stored copy of the works")) }
                         }
                         a.btn.ghost.sm href=(status::SOURCE_URL) rel="noopener" { (lang.pick("കിഫ്ബി താൾ", "KIIFB page")) (icon(icons::ARROW_UP_RIGHT)) }
+                        (report_link(lang, contact, &format!("{origin}{p}{path}"), &project.reference))
                     }
                 }
             }
